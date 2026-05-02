@@ -1,0 +1,260 @@
+"""MCP server for EquineIQ — AI Mating Advisor API.
+
+Exposes stallion import, mare management, and mating analysis as MCP tools
+so Claude can research horses, bulk-load them, and run mating analysis
+directly in conversation.
+
+Usage (stdio transport):
+    python equine_iq_mcp_server.py
+
+Config in .mcp.json:
+    {
+      "mcpServers": {
+        "equine-iq": {
+          "command": "python",
+          "args": ["equine_iq_mcp_server.py"],
+          "env": {
+            "EQUINE_IQ_API_URL": "https://equine-iq-api.onrender.com",
+            "EQUINE_IQ_EMAIL": "you@example.com",
+            "EQUINE_IQ_PASSWORD": "yourpassword"
+          }
+        }
+      }
+    }
+"""
+from __future__ import annotations
+
+import json
+import os
+from typing import Any
+
+import httpx
+from mcp.server.fastmcp import FastMCP
+
+# ---------------------------------------------------------------------------
+# Config
+# ---------------------------------------------------------------------------
+
+API_BASE  = os.getenv("EQUINE_IQ_API_URL", "https://equine-iq-api.onrender.com").rstrip("/")
+TIMEOUT   = float(os.getenv("EQUINE_IQ_TIMEOUT", "60"))
+_EMAIL    = os.getenv("EQUINE_IQ_EMAIL", "")
+_PASSWORD = os.getenv("EQUINE_IQ_PASSWORD", "")
+
+mcp = FastMCP("equine-iq")
+
+# ---------------------------------------------------------------------------
+# Auth — auto-login, cache JWT in-process
+# ---------------------------------------------------------------------------
+
+_token: str = ""
+
+
+def _ensure_token() -> str:
+    global _token
+    if _token:
+        return _token
+    if not _EMAIL or not _PASSWORD:
+        raise RuntimeError("EQUINE_IQ_EMAIL and EQUINE_IQ_PASSWORD must be set")
+    r = httpx.post(
+        f"{API_BASE}/api/auth/login",
+        json={"email": _EMAIL, "password": _PASSWORD},
+        timeout=15,
+    )
+    r.raise_for_status()
+    _token = r.json().get("token", "")
+    return _token
+
+
+def _headers() -> dict:
+    return {"Authorization": f"Bearer {_ensure_token()}"}
+
+
+def _get(path: str, params: dict | None = None) -> Any:
+    global _token
+    url = f"{API_BASE}{path}"
+    r = httpx.get(url, params=params, headers=_headers(), timeout=TIMEOUT)
+    if r.status_code == 401:
+        _token = ""
+        r = httpx.get(url, params=params, headers=_headers(), timeout=TIMEOUT)
+    r.raise_for_status()
+    return r.json()
+
+
+def _post(path: str, body: Any) -> Any:
+    global _token
+    url = f"{API_BASE}{path}"
+    r = httpx.post(url, json=body, headers=_headers(), timeout=TIMEOUT)
+    if r.status_code == 401:
+        _token = ""
+        r = httpx.post(url, json=body, headers=_headers(), timeout=TIMEOUT)
+    r.raise_for_status()
+    return r.json()
+
+
+# ---------------------------------------------------------------------------
+# Tools
+# ---------------------------------------------------------------------------
+
+@mcp.tool()
+def list_stallions(
+    discipline: str = "",
+    breed: str = "",
+    q: str = "",
+    max_fee: int = 0,
+) -> str:
+    """List stallions in the catalog. Filter by discipline, breed, name search, or max stud fee."""
+    params: dict = {}
+    if discipline:
+        params["discipline"] = discipline
+    if breed:
+        params["breed"] = breed
+    if q:
+        params["q"] = q
+    if max_fee:
+        params["maxFee"] = max_fee
+    result = _get("/api/stallions", params=params)
+    return json.dumps(result, indent=2)
+
+
+@mcp.tool()
+def import_stallions(stallions: list[dict]) -> str:
+    """Bulk-import stallions into the catalog.
+
+    Each stallion dict must have:
+      name (str), breed (str), discipline (str)
+
+    Optional fields:
+      studFee (int), studLocation (str), offspringCount (int),
+      offspringPerformanceSummary (str), conformationNotes (str),
+      pedigree (dict with keys: sire, dam, sire_sire, sire_dam, dam_sire, dam_dam
+               each being a dict with 'name' and optionally 'breed')
+
+    discipline must be one of:
+      sport_horse, warmblood, quarter_horse, paint, reining, cutting,
+      barrel_racing, hunter_jumper, dressage, eventing, other
+
+    Example:
+      [{"name": "Vitalis", "breed": "KWPN", "discipline": "dressage",
+        "studFee": 4500, "studLocation": "Netherlands", "offspringCount": 220,
+        "offspringPerformanceSummary": "Top dressage sire...",
+        "pedigree": {"sire": {"name": "Voice"}, "dam": {"name": "Whistler"}}}]
+    """
+    result = _post("/api/stallions/import", stallions)
+    return json.dumps(result, indent=2)
+
+
+@mcp.tool()
+def list_mares() -> str:
+    """List all mares in the user's account."""
+    return json.dumps(_get("/api/mares"), indent=2)
+
+
+@mcp.tool()
+def get_mare(mare_id: str) -> str:
+    """Get full details for a specific mare including pedigree."""
+    return json.dumps(_get(f"/api/mares/{mare_id}"), indent=2)
+
+
+@mcp.tool()
+def create_mare(
+    name: str,
+    breed: str,
+    discipline: str,
+    color: str = "",
+    height_hands: float = 0.0,
+    date_of_birth: str = "",
+    conformation_notes: str = "",
+    pedigree: dict | None = None,
+) -> str:
+    """Create a new mare in the user's account.
+
+    discipline must be one of:
+      sport_horse, warmblood, quarter_horse, paint, reining, cutting,
+      barrel_racing, hunter_jumper, dressage, eventing, other
+    """
+    body: dict = {"name": name, "breed": breed, "discipline": discipline}
+    if color:
+        body["color"] = color
+    if height_hands:
+        body["heightHands"] = height_hands
+    if date_of_birth:
+        body["dateOfBirth"] = date_of_birth
+    if conformation_notes:
+        body["conformationNotes"] = conformation_notes
+    if pedigree:
+        body["pedigree"] = pedigree
+    return json.dumps(_post("/api/mares", body), indent=2)
+
+
+@mcp.tool()
+def analyze_mating(
+    mare_id: str,
+    stallion_ids: list[str],
+    goal: str,
+) -> str:
+    """Run the AI mating advisor for a mare against a list of stallions.
+
+    Calls Claude in parallel for each stallion and returns ranked results
+    with compatibility scores, score breakdowns, reasoning, and risk flags.
+
+    Args:
+      mare_id: ID of the mare
+      stallion_ids: List of stallion IDs (1–10)
+      goal: Breeding goal, e.g. "competitive 1.40m show jumper" or "reining futurity"
+    """
+    result = _post("/api/pairings/analyze", {
+        "mare_id": mare_id,
+        "stallion_ids": stallion_ids,
+        "goal": goal,
+    })
+    return json.dumps(result, indent=2)
+
+
+@mcp.tool()
+def save_pairing(
+    mare_id: str,
+    stallion_id: str,
+    compatibility_score: float,
+    score_breakdown: dict,
+    reasoning: str,
+    goal: str,
+    risk_flags: list[dict] | None = None,
+    top_strengths: list[str] | None = None,
+    considerations: list[str] | None = None,
+    notes: str = "",
+) -> str:
+    """Save a mating pairing to the user's saved pairings list."""
+    body = {
+        "mare_id": mare_id,
+        "stallion_id": stallion_id,
+        "compatibility_score": compatibility_score,
+        "score_breakdown": score_breakdown,
+        "reasoning": reasoning,
+        "goal": goal,
+        "risk_flags": risk_flags or [],
+        "top_strengths": top_strengths or [],
+        "considerations": considerations or [],
+    }
+    if notes:
+        body["notes"] = notes
+    return json.dumps(_post("/api/pairings", body), indent=2)
+
+
+@mcp.tool()
+def list_pairings() -> str:
+    """List all saved mating pairings for the current user."""
+    return json.dumps(_get("/api/pairings"), indent=2)
+
+
+@mcp.tool()
+def get_pedigree(horse_id: str) -> str:
+    """Get pedigree tree and inbreeding flags for any horse."""
+    return json.dumps(_get(f"/api/horses/{horse_id}/pedigree"), indent=2)
+
+
+# ---------------------------------------------------------------------------
+# Run
+# ---------------------------------------------------------------------------
+
+if __name__ == "__main__":
+    mcp.run()
