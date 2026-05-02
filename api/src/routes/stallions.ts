@@ -7,6 +7,19 @@ const router = Router()
 
 const qs = (v: unknown): string | undefined => (typeof v === 'string' ? v : undefined)
 
+const StallionSchema = z.object({
+  name: z.string().min(1),
+  breed: z.string().min(1),
+  discipline: z.enum(['sport_horse','warmblood','quarter_horse','paint','reining','cutting','barrel_racing','hunter_jumper','dressage','eventing','other']),
+  studFee: z.number().optional(),
+  studLocation: z.string().optional(),
+  studBookingUrl: z.string().url().optional(),
+  offspringCount: z.number().default(0),
+  offspringPerformanceSummary: z.string().optional(),
+  conformationNotes: z.string().optional(),
+  pedigree: z.record(z.any()).optional(),
+})
+
 router.get('/', requireAuth, async (req: Request, res: Response) => {
   const userId = getUserId(req)
   const discipline = qs(req.query.discipline)
@@ -33,51 +46,9 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
   res.json(stallions)
 })
 
-router.get('/:id', requireAuth, async (req: Request, res: Response) => {
-  const userId = getUserId(req)
-  const stallion = await prisma.horse.findFirst({
-    where: {
-      id: req.params.id,
-      sex: 'stallion',
-      OR: [{ createdByUser: null }, { createdByUser: userId }],
-    },
-  })
-  if (!stallion) { res.status(404).json({ error: 'Not found' }); return }
-  res.json(stallion)
-})
-
-const PrivateStallionSchema = z.object({
-  name: z.string().min(1),
-  breed: z.string().min(1),
-  discipline: z.enum(['sport_horse','warmblood','quarter_horse','paint','reining','cutting','barrel_racing','hunter_jumper','dressage','eventing','other']),
-  studFee: z.number().optional(),
-  studLocation: z.string().optional(),
-  studBookingUrl: z.string().url().optional(),
-  offspringCount: z.number().default(0),
-  offspringPerformanceSummary: z.string().optional(),
-  conformationNotes: z.string().optional(),
-  pedigree: z.record(z.any()).optional(),
-})
-
-router.post('/', requireAuth, async (req: Request, res: Response) => {
-  const userId = getUserId(req)
-  const parsed = PrivateStallionSchema.safeParse(req.body)
-  if (!parsed.success) { res.status(400).json({ error: parsed.error.flatten() }); return }
-
-  const stallion = await prisma.horse.create({
-    data: {
-      ...parsed.data,
-      sex: 'stallion',
-      pedigree: parsed.data.pedigree ?? {},
-      createdByUser: userId,
-    },
-  })
-  res.status(201).json(stallion)
-})
-
-// Bulk import — accepts array of stallions, upserts by name (case-insensitive)
+// Bulk import — MUST be before /:id to avoid route conflict
 router.post('/import', requireAuth, async (req: Request, res: Response) => {
-  const ImportSchema = z.array(PrivateStallionSchema).min(1).max(500)
+  const ImportSchema = z.array(StallionSchema).min(1).max(500)
   const parsed = ImportSchema.safeParse(req.body)
   if (!parsed.success) { res.status(400).json({ error: parsed.error.flatten() }); return }
 
@@ -108,6 +79,35 @@ router.post('/import', requireAuth, async (req: Request, res: Response) => {
   }
 
   res.json({ created, updated, errors, total: created + updated })
+})
+
+router.post('/', requireAuth, async (req: Request, res: Response) => {
+  const userId = getUserId(req)
+  const parsed = StallionSchema.safeParse(req.body)
+  if (!parsed.success) { res.status(400).json({ error: parsed.error.flatten() }); return }
+
+  const stallion = await prisma.horse.create({
+    data: {
+      ...parsed.data,
+      sex: 'stallion',
+      pedigree: parsed.data.pedigree ?? {},
+      createdByUser: userId,
+    },
+  })
+  res.status(201).json(stallion)
+})
+
+router.get('/:id', requireAuth, async (req: Request, res: Response) => {
+  const userId = getUserId(req)
+  const stallion = await prisma.horse.findFirst({
+    where: {
+      id: req.params.id,
+      sex: 'stallion',
+      OR: [{ createdByUser: null }, { createdByUser: userId }],
+    },
+  })
+  if (!stallion) { res.status(404).json({ error: 'Not found' }); return }
+  res.json(stallion)
 })
 
 export default router

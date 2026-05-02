@@ -34,16 +34,6 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
 router.post('/', requireAuth, async (req: Request, res: Response) => {
   const userId = getUserId(req)
 
-  // Free tier cap: 3 mares
-  const user = await prisma.user.findUnique({ where: { id: userId } })
-  if (user?.subscriptionTier === 'free') {
-    const count = await prisma.horse.count({ where: { sex: 'mare', createdByUser: userId } })
-    if (count >= 3) {
-      res.status(403).json({ error: 'Free tier limit reached. Upgrade to Pro for unlimited mares.' })
-      return
-    }
-  }
-
   const parsed = HorseSchema.safeParse(req.body)
   if (!parsed.success) { res.status(400).json({ error: parsed.error.flatten() }); return }
 
