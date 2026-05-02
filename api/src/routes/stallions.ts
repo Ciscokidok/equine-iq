@@ -64,7 +64,7 @@ router.post('/import', requireAuth, async (req: Request, res: Response) => {
       if (existing) {
         await prisma.horse.update({
           where: { id: existing.id },
-          data: { ...s, pedigree: s.pedigree ?? existing.pedigree },
+          data: { ...s, pedigree: (s.pedigree ?? existing.pedigree ?? {}) as any },
         })
         updated++
       } else {
