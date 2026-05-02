@@ -81,8 +81,22 @@ router.post('/', requireAuth, async (req: Request, res: Response) => {
   const parsed = schema.safeParse(req.body)
   if (!parsed.success) { res.status(400).json({ error: parsed.error.flatten() }); return }
 
+  const d = parsed.data
   const pairing = await prisma.matingPairing.create({
-    data: { ...parsed.data, userId, saved: true },
+    data: {
+      userId,
+      saved: true,
+      mareId: d.mare_id,
+      stallionId: d.stallion_id,
+      compatibilityScore: d.compatibility_score,
+      scoreBreakdown: d.score_breakdown,
+      reasoning: d.reasoning,
+      riskFlags: d.risk_flags,
+      topStrengths: d.top_strengths,
+      considerations: d.considerations,
+      goal: d.goal,
+      notes: d.notes,
+    },
   })
   res.status(201).json(pairing)
 })
