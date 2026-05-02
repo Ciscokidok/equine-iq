@@ -75,4 +75,39 @@ router.post('/', requireAuth, async (req: Request, res: Response) => {
   res.status(201).json(stallion)
 })
 
+// Bulk import — accepts array of stallions, upserts by name (case-insensitive)
+router.post('/import', requireAuth, async (req: Request, res: Response) => {
+  const ImportSchema = z.array(PrivateStallionSchema).min(1).max(500)
+  const parsed = ImportSchema.safeParse(req.body)
+  if (!parsed.success) { res.status(400).json({ error: parsed.error.flatten() }); return }
+
+  let created = 0
+  let updated = 0
+  const errors: string[] = []
+
+  for (const s of parsed.data) {
+    try {
+      const existing = await prisma.horse.findFirst({
+        where: { name: { equals: s.name, mode: 'insensitive' }, sex: 'stallion' },
+      })
+      if (existing) {
+        await prisma.horse.update({
+          where: { id: existing.id },
+          data: { ...s, pedigree: s.pedigree ?? existing.pedigree },
+        })
+        updated++
+      } else {
+        await prisma.horse.create({
+          data: { ...s, sex: 'stallion', pedigree: s.pedigree ?? {}, createdByUser: null },
+        })
+        created++
+      }
+    } catch (err) {
+      errors.push(`${s.name}: ${err instanceof Error ? err.message : 'unknown error'}`)
+    }
+  }
+
+  res.json({ created, updated, errors, total: created + updated })
+})
+
 export default router
