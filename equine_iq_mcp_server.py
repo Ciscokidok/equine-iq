@@ -36,7 +36,7 @@ from mcp.server.fastmcp import FastMCP
 # ---------------------------------------------------------------------------
 
 API_BASE  = os.getenv("EQUINE_IQ_API_URL", "https://equine-iq-api.onrender.com").rstrip("/")
-TIMEOUT   = float(os.getenv("EQUINE_IQ_TIMEOUT", "60"))
+TIMEOUT   = float(os.getenv("EQUINE_IQ_TIMEOUT", "120"))
 _EMAIL    = os.getenv("EQUINE_IQ_EMAIL", "")
 _PASSWORD = os.getenv("EQUINE_IQ_PASSWORD", "")
 
@@ -49,16 +49,25 @@ mcp = FastMCP("equine-iq")
 _token: str = ""
 
 
+def _warmup() -> None:
+    """Ping /health to wake the Render free-tier instance before real requests."""
+    try:
+        httpx.get(f"{API_BASE}/health", timeout=90)
+    except Exception:
+        pass
+
+
 def _ensure_token() -> str:
     global _token
     if _token:
         return _token
     if not _EMAIL or not _PASSWORD:
         raise RuntimeError("EQUINE_IQ_EMAIL and EQUINE_IQ_PASSWORD must be set")
+    _warmup()
     r = httpx.post(
         f"{API_BASE}/api/auth/login",
         json={"email": _EMAIL, "password": _PASSWORD},
-        timeout=15,
+        timeout=90,
     )
     r.raise_for_status()
     _token = r.json().get("token", "")
