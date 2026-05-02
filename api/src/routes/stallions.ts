@@ -5,19 +5,26 @@ import { requireAuth, getUserId } from '../middleware/auth'
 
 const router = Router()
 
+const qs = (v: unknown): string | undefined => (typeof v === 'string' ? v : undefined)
+
 router.get('/', requireAuth, async (req: Request, res: Response) => {
   const userId = getUserId(req)
-  const { discipline, breed, minFee, maxFee, hasOffspringData, q } = req.query
+  const discipline = qs(req.query.discipline)
+  const breed = qs(req.query.breed)
+  const minFee = qs(req.query.minFee)
+  const maxFee = qs(req.query.maxFee)
+  const hasOffspringData = qs(req.query.hasOffspringData)
+  const q = qs(req.query.q)
 
   const stallions = await prisma.horse.findMany({
     where: {
       sex: 'stallion',
       OR: [{ createdByUser: null }, { createdByUser: userId }],
       ...(discipline ? { discipline: discipline as any } : {}),
-      ...(breed ? { breed: { contains: breed as string, mode: 'insensitive' } } : {}),
-      ...(q ? { name: { contains: q as string, mode: 'insensitive' } } : {}),
-      ...(minFee ? { studFee: { gte: parseInt(minFee as string) } } : {}),
-      ...(maxFee ? { studFee: { lte: parseInt(maxFee as string) } } : {}),
+      ...(breed ? { breed: { contains: breed, mode: 'insensitive' } } : {}),
+      ...(q ? { name: { contains: q, mode: 'insensitive' } } : {}),
+      ...(minFee ? { studFee: { gte: parseInt(minFee) } } : {}),
+      ...(maxFee ? { studFee: { lte: parseInt(maxFee) } } : {}),
       ...(hasOffspringData === 'true' ? { offspringPerformanceSummary: { not: null } } : {}),
     },
     orderBy: { offspringCount: 'desc' },
