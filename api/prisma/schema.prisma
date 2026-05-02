@@ -1,0 +1,105 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Sex {
+  mare
+  stallion
+  gelding
+}
+
+enum Discipline {
+  sport_horse
+  warmblood
+  quarter_horse
+  paint
+  reining
+  cutting
+  barrel_racing
+  hunter_jumper
+  dressage
+  eventing
+  other
+}
+
+enum SubscriptionTier {
+  free
+  pro
+}
+
+enum RiskSeverity {
+  low
+  medium
+  high
+}
+
+model User {
+  id                String           @id // Clerk user_id
+  email             String           @unique
+  farmName          String?
+  primaryDiscipline Discipline?
+  subscriptionTier  SubscriptionTier @default(free)
+  createdAt         DateTime         @default(now())
+
+  mares    Horse[]         @relation("UserMares")
+  pairings MatingPairing[]
+}
+
+model Horse {
+  id                        String     @id @default(uuid())
+  name                      String
+  sex                       Sex
+  breed                     String
+  dateOfBirth               DateTime?
+  discipline                Discipline
+  color                     String?
+  heightHands               Float?
+  conformationNotes         String?
+  performanceRecords        Json       @default("[]")
+  pedigree                  Json       @default("{}")
+  studFee                   Int?
+  studLocation              String?
+  studBookingUrl            String?
+  offspringCount            Int        @default(0)
+  offspringPerformanceSummary String?
+  createdByUser             String?    // null = seed data
+  createdAt                 DateTime   @default(now())
+  updatedAt                 DateTime   @updatedAt
+
+  ownerMares    User?           @relation("UserMares", fields: [createdByUser], references: [id])
+  marePairings  MatingPairing[] @relation("MarePairings")
+  stallionPairings MatingPairing[] @relation("StallionPairings")
+
+  @@index([sex])
+  @@index([discipline])
+  @@index([createdByUser])
+}
+
+model MatingPairing {
+  id                 String   @id @default(uuid())
+  userId             String
+  mareId             String
+  stallionId         String
+  compatibilityScore Float
+  scoreBreakdown     Json
+  reasoning          String
+  riskFlags          Json     @default("[]")
+  topStrengths       Json     @default("[]")
+  considerations     Json     @default("[]")
+  goal               String
+  notes              String?
+  saved              Boolean  @default(false)
+  createdAt          DateTime @default(now())
+
+  user     User  @relation(fields: [userId], references: [id])
+  mare     Horse @relation("MarePairings", fields: [mareId], references: [id])
+  stallion Horse @relation("StallionPairings", fields: [stallionId], references: [id])
+
+  @@index([userId])
+  @@index([mareId])
+}
