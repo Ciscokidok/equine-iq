@@ -1,11 +1,14 @@
 import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
 
-const SECRET = process.env.SECRET_KEY
-if (!SECRET) throw new Error('SECRET_KEY env var is not set')
-
 const ALGORITHM = 'HS256'
 const EXPIRES_IN = '7d'
+
+function getSecret(): string {
+  const s = process.env.SECRET_KEY
+  if (!s) throw new Error('SECRET_KEY env var is not set')
+  return s
+}
 
 export function hashPassword(password: string): string {
   return bcrypt.hashSync(password, 10)
@@ -22,9 +25,9 @@ export interface TokenPayload {
 }
 
 export function createToken(payload: TokenPayload): string {
-  return jwt.sign(payload, SECRET!, { algorithm: ALGORITHM, expiresIn: EXPIRES_IN })
+  return jwt.sign(payload, getSecret(), { algorithm: ALGORITHM, expiresIn: EXPIRES_IN })
 }
 
 export function verifyToken(token: string): TokenPayload {
-  return jwt.verify(token, SECRET!, { algorithms: [ALGORITHM] }) as TokenPayload
+  return jwt.verify(token, getSecret(), { algorithms: [ALGORITHM] }) as TokenPayload
 }
