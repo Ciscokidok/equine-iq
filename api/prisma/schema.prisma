@@ -39,8 +39,9 @@ enum RiskSeverity {
 }
 
 model User {
-  id                String           @id // Clerk user_id
+  id                String           @id @default(uuid())
   email             String           @unique
+  passwordHash      String
   farmName          String?
   primaryDiscipline Discipline?
   subscriptionTier  SubscriptionTier @default(free)

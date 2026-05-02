@@ -1,5 +1,4 @@
-import { Link, useLocation } from 'react-router-dom'
-import { UserButton } from '@clerk/clerk-react'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 
 const NAV = [
   { to: '/', label: 'Dashboard' },
@@ -9,6 +8,13 @@ const NAV = [
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const { pathname } = useLocation()
+  const navigate = useNavigate()
+
+  function logout() {
+    localStorage.removeItem('auth_token')
+    window.dispatchEvent(new Event('auth_change'))
+    navigate('/login')
+  }
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -31,7 +37,12 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             ))}
           </nav>
         </div>
-        <UserButton />
+        <button
+          onClick={logout}
+          className="text-xs text-brand-300 hover:text-white transition-colors"
+        >
+          Sign out
+        </button>
       </header>
       <main className="flex-1 max-w-5xl w-full mx-auto px-4 py-8">
         {children}

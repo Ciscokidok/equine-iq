@@ -18,8 +18,8 @@ services:
         fromDatabase:
           name: equine-iq-db
           property: connectionString
-      - key: CLERK_SECRET_KEY
-        sync: false
+      - key: SECRET_KEY
+        generateValue: true
       - key: ANTHROPIC_API_KEY
         sync: false
       - key: FRONTEND_URL
@@ -36,8 +36,6 @@ services:
     buildCommand: npm install && npm run build
     staticPublishPath: dist
     envVars:
-      - key: VITE_CLERK_PUBLISHABLE_KEY
-        sync: false
       - key: VITE_API_URL
         sync: false
     routes:

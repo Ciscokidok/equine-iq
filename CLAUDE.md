@@ -16,7 +16,7 @@ AI-powered mating advisor for horse breeders. Given a mare, the app returns rank
 | Backend | Node.js + Express + TypeScript |
 | ORM | Prisma |
 | Database | PostgreSQL |
-| Auth | Clerk |
+| Auth | bcrypt + JWT (HS256, 7-day tokens, localStorage) |
 | AI | Anthropic API — `claude-sonnet-4-6` |
 
 ---
@@ -42,14 +42,14 @@ npm run dev                  # starts on :5173
 ### api/.env
 ```
 DATABASE_URL=postgresql://...
-CLERK_SECRET_KEY=sk_...
+SECRET_KEY=long-random-string
 ANTHROPIC_API_KEY=sk-ant-...
+FRONTEND_URL=http://localhost:5173
 PORT=3001
 ```
 
 ### frontend/.env
 ```
-VITE_CLERK_PUBLISHABLE_KEY=pk_...
 VITE_API_URL=http://localhost:3001
 ```
 
