@@ -162,7 +162,10 @@ export default function MatingAdvisor() {
     onSuccess: (data) => {
       setResults(data.results)
       setStep(2)
-      if (data.errors.length) toast.warning(`${data.errors.length} stallion(s) could not be analyzed`)
+      if (data.errors.length) {
+        const msg = (data.errors[0] as any)?.error ?? 'unknown error'
+        toast.warning(`${data.errors.length} stallion(s) failed: ${msg}`)
+      }
     },
     onError: () => toast.error('Analysis failed'),
   })

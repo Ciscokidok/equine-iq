@@ -57,6 +57,16 @@ Return a JSON object with exactly these fields:
 - top_strengths: array of 3 strings
 - considerations: array of 2–3 strings`
 
+  function extractJson(text: string): PairingAnalysis {
+    // Strip markdown code fences if present
+    const stripped = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '').trim()
+    // Find first { to last } in case there's any surrounding text
+    const start = stripped.indexOf('{')
+    const end = stripped.lastIndexOf('}')
+    if (start === -1 || end === -1) throw new Error('No JSON object found in response')
+    return JSON.parse(stripped.slice(start, end + 1)) as PairingAnalysis
+  }
+
   async function attempt(): Promise<PairingAnalysis> {
     const msg = await client.messages.create({
       model: 'claude-sonnet-4-6',
@@ -67,13 +77,13 @@ Return a JSON object with exactly these fields:
     })
 
     const text = msg.content[0].type === 'text' ? msg.content[0].text : ''
-    return JSON.parse(text) as PairingAnalysis
+    return extractJson(text)
   }
 
   try {
     return await attempt()
   } catch {
-    // retry once on JSON parse failure
+    // retry once on parse failure
     return await attempt()
   }
 }
