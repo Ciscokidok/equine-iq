@@ -10,7 +10,7 @@ const qs = (v: unknown): string | undefined => (typeof v === 'string' ? v : unde
 const StallionSchema = z.object({
   name: z.string().min(1),
   breed: z.string().min(1),
-  discipline: z.enum(['sport_horse','warmblood','quarter_horse','paint','reining','cutting','barrel_racing','hunter_jumper','dressage','eventing','other']),
+  discipline: z.enum(['sport_horse','warmblood','quarter_horse','paint','reining','cutting','barrel_racing','flat_racing','thoroughbred_racing','hunter_jumper','dressage','eventing','other']),
   studFee: z.number().optional(),
   studLocation: z.string().optional(),
   studBookingUrl: z.string().url().optional(),

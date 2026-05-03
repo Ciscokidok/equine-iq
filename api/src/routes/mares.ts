@@ -8,7 +8,7 @@ const router = Router()
 const HorseSchema = z.object({
   name: z.string().min(1),
   breed: z.string().min(1),
-  discipline: z.enum(['sport_horse','warmblood','quarter_horse','paint','reining','cutting','barrel_racing','hunter_jumper','dressage','eventing','other']),
+  discipline: z.enum(['sport_horse','warmblood','quarter_horse','paint','reining','cutting','barrel_racing','flat_racing','thoroughbred_racing','hunter_jumper','dressage','eventing','other']),
   dateOfBirth: z.string().optional(),
   color: z.string().optional(),
   heightHands: z.number().optional(),
