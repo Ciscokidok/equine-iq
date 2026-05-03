@@ -4,7 +4,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import client from '@/api/client'
 import type { Horse } from '@/api/mares'
 
-const DISCIPLINES = ['','sport_horse','warmblood','quarter_horse','paint','reining','cutting','barrel_racing','hunter_jumper','dressage','eventing','other']
+const DISCIPLINES = ['','sport_horse','warmblood','quarter_horse','paint','reining','cutting','barrel_racing','flat_racing','thoroughbred_racing','hunter_jumper','dressage','eventing','other']
 
 type SortKey = 'offspringCount' | 'studFee' | 'name'
 
