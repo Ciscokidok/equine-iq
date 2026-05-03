@@ -27,9 +27,11 @@ enum Discipline {
   other
 }
 
-enum SubscriptionTier {
+enum Plan {
   free
-  pro
+  breeder
+  professional
+  enterprise
 }
 
 enum RiskSeverity {
@@ -39,13 +41,19 @@ enum RiskSeverity {
 }
 
 model User {
-  id                String           @id @default(uuid())
-  email             String           @unique
-  passwordHash      String
-  farmName          String?
-  primaryDiscipline Discipline?
-  subscriptionTier  SubscriptionTier @default(free)
-  createdAt         DateTime         @default(now())
+  id                       String    @id @default(uuid())
+  email                    String    @unique
+  passwordHash             String?
+  farmName                 String?
+  primaryDiscipline        Discipline?
+  plan                     Plan      @default(free)
+  subscriptionStatus       String?
+  subscriptionEndDate      DateTime?
+  stripeCustomerId         String?   @unique
+  openaiApiKeyEncrypted    String?
+  claimToken               String?   @unique
+  claimTokenExpiry         DateTime?
+  createdAt                DateTime  @default(now())
 
   mares    Horse[]         @relation("UserMares")
   pairings MatingPairing[]

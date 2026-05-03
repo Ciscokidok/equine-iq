@@ -1,4 +1,6 @@
+import { useState, useEffect } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { getOpenAIKey } from '@/api/settings'
 
 const NAV = [
   { to: '/', label: 'Dashboard' },
@@ -10,6 +12,11 @@ const NAV = [
 export default function Layout({ children }: { children: React.ReactNode }) {
   const { pathname } = useLocation()
   const navigate = useNavigate()
+  const [missingKey, setMissingKey] = useState(false)
+
+  useEffect(() => {
+    getOpenAIKey().then(d => setMissingKey(!d.hasKey)).catch(() => {})
+  }, [pathname])
 
   function logout() {
     localStorage.removeItem('auth_token')
@@ -38,13 +45,34 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             ))}
           </nav>
         </div>
-        <button
-          onClick={logout}
-          className="text-xs text-brand-300 hover:text-white transition-colors"
-        >
-          Sign out
-        </button>
+        <div className="flex items-center gap-3">
+          <Link
+            to="/settings"
+            className={`text-xs px-2 py-1 rounded transition-colors ${
+              pathname === '/settings'
+                ? 'bg-white/20 text-white'
+                : 'text-brand-300 hover:text-white hover:bg-white/10'
+            }`}
+          >
+            Settings
+          </Link>
+          <button
+            onClick={logout}
+            className="text-xs text-brand-300 hover:text-white transition-colors"
+          >
+            Sign out
+          </button>
+        </div>
       </header>
+
+      {missingKey && pathname !== '/settings' && (
+        <div className="bg-amber-50 border-b border-amber-200 px-4 py-2 text-center text-xs text-amber-800">
+          Add your OpenAI API key in{' '}
+          <Link to="/settings" className="font-medium underline">Account Settings</Link>{' '}
+          to enable AI breeding analysis.
+        </div>
+      )}
+
       <main className="flex-1 max-w-5xl w-full mx-auto px-4 py-8">
         {children}
       </main>

@@ -1,13 +1,9 @@
 import OpenAI from 'openai'
 
-let _client: OpenAI | null = null
-function getClient(): OpenAI {
-  if (!_client) {
-    const apiKey = process.env.OPENAI_API_KEY
-    if (!apiKey) throw new Error('OPENAI_API_KEY environment variable is not set')
-    _client = new OpenAI({ apiKey })
-  }
-  return _client
+function getClient(apiKey?: string): OpenAI {
+  const key = apiKey || process.env.OPENAI_API_KEY
+  if (!key) throw new Error('No OpenAI API key available. Add your key in Account Settings.')
+  return new OpenAI({ apiKey: key })
 }
 
 export interface ScoreBreakdown {
@@ -45,6 +41,7 @@ export async function analyzePairing(
   stallion: object,
   goal: string,
   discipline: string,
+  apiKey?: string,
 ): Promise<PairingAnalysis> {
   const userMessage = `Evaluate this mating pairing:
 
@@ -65,7 +62,7 @@ Return a JSON object with exactly these fields:
 - top_strengths: array of 3 strings
 - considerations: array of 2–3 strings`
 
-  const response = await getClient().chat.completions.create({
+  const response = await getClient(apiKey).chat.completions.create({
     model: 'gpt-4o',
     max_tokens: 1500,
     temperature: 0.3,

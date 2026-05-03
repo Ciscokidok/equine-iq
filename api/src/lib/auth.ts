@@ -19,9 +19,9 @@ export function verifyPassword(password: string, hash: string): boolean {
 }
 
 export interface TokenPayload {
-  sub: string   // user id
+  sub: string
   email: string
-  tier: string
+  plan: string
 }
 
 export function createToken(payload: TokenPayload): string {

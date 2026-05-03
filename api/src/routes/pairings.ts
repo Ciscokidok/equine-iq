@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { prisma } from '../lib/prisma'
 import { requireAuth, getUserId } from '../middleware/auth'
 import { analyzePairing } from '../services/claude'
+import { decrypt } from '../lib/encryption'
 
 const router = Router()
 
@@ -19,6 +20,25 @@ router.post('/analyze', requireAuth, async (req: Request, res: Response) => {
 
   const { mare_id, stallion_ids, goal } = parsed.data
 
+  // Fetch user's encrypted OpenAI key
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { openaiApiKeyEncrypted: true },
+  })
+
+  if (!user?.openaiApiKeyEncrypted && !process.env.OPENAI_API_KEY) {
+    res.status(402).json({
+      error: 'OpenAI API key required',
+      message: 'Add your OpenAI API key in Account Settings to run breeding analysis.',
+    })
+    return
+  }
+
+  let userApiKey: string | undefined
+  if (user?.openaiApiKeyEncrypted) {
+    try { userApiKey = decrypt(user.openaiApiKeyEncrypted) } catch { /* use env fallback */ }
+  }
+
   const mare = await prisma.horse.findFirst({
     where: { id: mare_id, sex: 'mare', createdByUser: userId },
   })
@@ -34,11 +54,10 @@ router.post('/analyze', requireAuth, async (req: Request, res: Response) => {
 
   const discipline = mare.discipline as string
 
-  // Parallelize all Claude calls
   const results = await Promise.all(
     stallions.map(async (stallion) => {
       try {
-        const analysis = await analyzePairing(mare, stallion, goal, discipline)
+        const analysis = await analyzePairing(mare, stallion, goal, discipline, userApiKey)
         return { stallion, analysis, error: null }
       } catch (err) {
         return {
