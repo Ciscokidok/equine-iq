@@ -4,6 +4,7 @@ const NAV = [
   { to: '/', label: 'Dashboard' },
   { to: '/pairings', label: 'Saved Pairings' },
   { to: '/stallions', label: 'Stallion Catalog' },
+  { to: '/foals', label: 'Foal Tracker' },
 ]
 
 export default function Layout({ children }: { children: React.ReactNode }) {

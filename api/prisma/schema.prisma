@@ -49,32 +49,36 @@ model User {
 
   mares    Horse[]         @relation("UserMares")
   pairings MatingPairing[]
+  foals    Foal[]
 }
 
 model Horse {
-  id                        String     @id @default(uuid())
-  name                      String
-  sex                       Sex
-  breed                     String
-  dateOfBirth               DateTime?
-  discipline                Discipline
-  color                     String?
-  heightHands               Float?
-  conformationNotes         String?
-  performanceRecords        Json       @default("[]")
-  pedigree                  Json       @default("{}")
-  studFee                   Int?
-  studLocation              String?
-  studBookingUrl            String?
-  offspringCount            Int        @default(0)
+  id                          String     @id @default(uuid())
+  name                        String
+  sex                         Sex
+  breed                       String
+  dateOfBirth                 DateTime?
+  discipline                  Discipline
+  color                       String?
+  heightHands                 Float?
+  conformationNotes           String?
+  performanceRecords          Json       @default("[]")
+  pedigree                    Json       @default("{}")
+  studFee                     Int?
+  studLocation                String?
+  studBookingUrl              String?
+  offspringCount              Int        @default(0)
   offspringPerformanceSummary String?
-  createdByUser             String?    // null = seed data
-  createdAt                 DateTime   @default(now())
-  updatedAt                 DateTime   @updatedAt
+  createdByUser               String?    // null = seed data
+  createdAt                   DateTime   @default(now())
+  updatedAt                   DateTime   @updatedAt
 
-  ownerMares    User?           @relation("UserMares", fields: [createdByUser], references: [id])
-  marePairings  MatingPairing[] @relation("MarePairings")
+  ownerMares       User?           @relation("UserMares", fields: [createdByUser], references: [id])
+  marePairings     MatingPairing[] @relation("MarePairings")
   stallionPairings MatingPairing[] @relation("StallionPairings")
+  foalMares        Foal[]          @relation("FoalMare")
+  foalSires        Foal[]          @relation("FoalSire")
+  heatCycles       HeatCycle[]
 
   @@index([sex])
   @@index([discipline])
@@ -100,7 +104,57 @@ model MatingPairing {
   user     User  @relation(fields: [userId], references: [id])
   mare     Horse @relation("MarePairings", fields: [mareId], references: [id])
   stallion Horse @relation("StallionPairings", fields: [stallionId], references: [id])
+  foal     Foal?
 
   @@index([userId])
+  @@index([mareId])
+}
+
+model Foal {
+  id         String    @id @default(uuid())
+  name       String?
+  sex        Sex?
+  foaledAt   DateTime?
+  color      String?
+  notes      String?
+  mareId     String
+  stallionId String?
+  pairingId  String?   @unique
+  userId     String
+  createdAt  DateTime  @default(now())
+
+  mare     Horse          @relation("FoalMare", fields: [mareId], references: [id])
+  stallion Horse?         @relation("FoalSire", fields: [stallionId], references: [id])
+  pairing  MatingPairing? @relation(fields: [pairingId], references: [id])
+  user     User           @relation(fields: [userId], references: [id])
+  results  FoalResult[]
+
+  @@index([userId])
+  @@index([mareId])
+}
+
+model FoalResult {
+  id        String   @id @default(uuid())
+  foalId    String
+  event     String
+  eventDate DateTime
+  placement String?
+  score     Float?
+  earnings  Float?
+  notes     String?
+  createdAt DateTime @default(now())
+
+  foal Foal @relation(fields: [foalId], references: [id], onDelete: Cascade)
+}
+
+model HeatCycle {
+  id        String   @id @default(uuid())
+  mareId    String
+  startDate DateTime
+  notes     String?
+  createdAt DateTime @default(now())
+
+  mare Horse @relation(fields: [mareId], references: [id], onDelete: Cascade)
+
   @@index([mareId])
 }

@@ -27,7 +27,25 @@ export default function MareProfile() {
           <h1 className="text-2xl font-bold">{mare.name}</h1>
           <p className="text-stone-500">{mare.breed} · {mare.discipline.replace(/_/g, ' ')}</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2 justify-end">
+          <Link
+            to={`/horses/${id}/pedigree`}
+            className="border border-stone-200 px-3 py-1.5 rounded text-sm hover:bg-stone-50"
+          >
+            Pedigree Tree
+          </Link>
+          <Link
+            to={`/mares/${id}/heat-cycles`}
+            className="border border-stone-200 px-3 py-1.5 rounded text-sm hover:bg-stone-50"
+          >
+            Heat Cycle
+          </Link>
+          <Link
+            to="/foals"
+            className="border border-stone-200 px-3 py-1.5 rounded text-sm hover:bg-stone-50"
+          >
+            Foal Outcomes
+          </Link>
           <Link
             to={`/mares/${id}/advisor`}
             className="bg-brand-700 text-white px-3 py-1.5 rounded text-sm hover:bg-brand-900"
@@ -59,7 +77,15 @@ export default function MareProfile() {
       {/* Pedigree summary */}
       {Object.keys(pedigree).length > 0 && (
         <div className="bg-white border border-stone-200 rounded-lg p-4">
-          <h2 className="text-sm font-semibold mb-3">Pedigree</h2>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-sm font-semibold">Pedigree</h2>
+            <Link
+              to={`/horses/${id}/pedigree`}
+              className="text-xs text-brand-700 hover:underline"
+            >
+              View tree →
+            </Link>
+          </div>
           <div className="grid sm:grid-cols-2 gap-2 text-sm">
             {Object.entries(pedigree).map(([key, val]) => (
               <div key={key}>
