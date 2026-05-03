@@ -21,6 +21,8 @@ enum Discipline {
   reining
   cutting
   barrel_racing
+  flat_racing
+  thoroughbred_racing
   hunter_jumper
   dressage
   eventing
