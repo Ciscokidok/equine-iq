@@ -266,6 +266,16 @@ export default function MatingAdvisor() {
     })
   }
 
+  const autoSelect = () => {
+    if (!mare) return
+    const eligible = filteredStallions.filter(s => s.offspringPerformanceSummary)
+    const disciplineMatch = eligible.filter(s => s.discipline === mare.discipline)
+    const other = eligible.filter(s => s.discipline !== mare.discipline)
+    const sorted = [...disciplineMatch, ...other].slice(0, 10)
+    setSelectedIds(new Set(sorted.map(s => s.id)))
+    toast.success(`Auto-selected ${sorted.length} stallion${sorted.length !== 1 ? 's' : ''} (${disciplineMatch.length} discipline match${disciplineMatch.length !== 1 ? 'es' : ''})`)
+  }
+
   if (!mare) return <p className="text-sm text-stone-400">Loading…</p>
 
   return (
@@ -299,10 +309,20 @@ export default function MatingAdvisor() {
           </div>
 
           <div>
-            <p className="text-sm font-semibold mb-2">
-              Select stallions to analyze ({selectedIds.size}/10)
-              <span className="text-xs text-stone-400 font-normal ml-2">— {filteredStallions.filter(s => s.discipline === mare.discipline).length} discipline matches, {filteredStallions.length} total</span>
-            </p>
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-sm font-semibold">
+                Select stallions to analyze ({selectedIds.size}/10)
+                <span className="text-xs text-stone-400 font-normal ml-2">— {filteredStallions.filter(s => s.discipline === mare.discipline).length} discipline matches, {filteredStallions.length} total</span>
+              </p>
+              <button
+                type="button"
+                onClick={autoSelect}
+                disabled={filteredStallions.filter(s => s.offspringPerformanceSummary).length === 0}
+                className="text-xs px-3 py-1.5 rounded border border-brand-700 text-brand-700 hover:bg-brand-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              >
+                Auto-select best matches
+              </button>
+            </div>
             <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
               {filteredStallions.map((stallion) => {
                 const sel = selectedIds.has(stallion.id)
