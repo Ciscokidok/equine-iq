@@ -268,9 +268,10 @@ export default function MatingAdvisor() {
 
   const autoSelect = () => {
     if (!mare) return
+    const byFee = (a: Horse, b: Horse) => (a.studFee ?? Infinity) - (b.studFee ?? Infinity)
     const eligible = filteredStallions.filter(s => s.offspringPerformanceSummary)
-    const disciplineMatch = eligible.filter(s => s.discipline === mare.discipline)
-    const other = eligible.filter(s => s.discipline !== mare.discipline)
+    const disciplineMatch = eligible.filter(s => s.discipline === mare.discipline).sort(byFee)
+    const other = eligible.filter(s => s.discipline !== mare.discipline).sort(byFee)
     const sorted = [...disciplineMatch, ...other].slice(0, 10)
     setSelectedIds(new Set(sorted.map(s => s.id)))
     toast.success(`Auto-selected ${sorted.length} stallion${sorted.length !== 1 ? 's' : ''} (${disciplineMatch.length} discipline match${disciplineMatch.length !== 1 ? 'es' : ''})`)
