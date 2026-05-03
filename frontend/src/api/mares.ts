@@ -14,6 +14,7 @@ export interface Horse {
   pedigree: Record<string, any>
   studFee?: number
   studLocation?: string
+  studBookingUrl?: string
   offspringCount: number
   offspringPerformanceSummary?: string
   createdAt: string
