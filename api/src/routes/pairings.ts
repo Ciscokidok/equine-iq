@@ -8,7 +8,7 @@ import { decrypt } from '../lib/encryption'
 const router = Router()
 
 const AnalyzeSchema = z.object({
-  mare_id: z.string().uuid(),
+  mare_id: z.string().min(1),
   stallion_ids: z.array(z.string()).min(1).max(10),
   goal: z.string().min(5),
 })
