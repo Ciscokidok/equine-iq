@@ -4,6 +4,7 @@ import { getOpenAIKey } from '@/api/settings'
 
 const NAV = [
   { to: '/', label: 'Dashboard' },
+  { to: '/advisor', label: 'Mating Advisor' },
   { to: '/pairings', label: 'Saved Pairings' },
   { to: '/stallions', label: 'Stallion Catalog' },
   { to: '/foals', label: 'Foal Tracker' },

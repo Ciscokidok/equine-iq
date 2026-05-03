@@ -202,9 +202,24 @@ function StallionCard({ stallion }: { stallion: Horse; selected: boolean; onTogg
 }
 
 export default function MatingAdvisor() {
-  const { id } = useParams<{ id: string }>()
+  const { id: urlId } = useParams<{ id: string }>()
   const qc = useQueryClient()
-  const { data: mare } = useQuery({ queryKey: ['mare', id], queryFn: () => getMare(id!) })
+
+  const { data: allMares = [] } = useQuery({
+    queryKey: ['mares'],
+    queryFn: () => getMares(),
+  })
+
+  const [selectedMareId, setSelectedMareId] = useState<string>(urlId ?? '')
+
+  const mareId = urlId ?? selectedMareId
+
+  const { data: mare } = useQuery({
+    queryKey: ['mare', mareId],
+    queryFn: () => getMare(mareId),
+    enabled: !!mareId,
+  })
+
   const { data: stallions = [] } = useQuery({
     queryKey: ['stallions'],
     queryFn: () => client.get<Horse[]>('/api/stallions').then(r => r.data),
@@ -218,7 +233,7 @@ export default function MatingAdvisor() {
   const [results, setResults] = useState<PairingResult[]>([])
 
   const analyzeMutation = useMutation({
-    mutationFn: () => analyzePairings(id!, Array.from(selectedIds), goal),
+    mutationFn: () => analyzePairings(mareId, Array.from(selectedIds), goal),
     onSuccess: (data) => {
       setResults(data.results)
       setStep(2)
@@ -233,7 +248,7 @@ export default function MatingAdvisor() {
   const saveMutation = useMutation({
     mutationFn: (result: PairingResult) =>
       savePairing({
-        mare_id: id!,
+        mare_id: mareId,
         stallion_id: result.stallion.id,
         compatibility_score: result.compatibility_score,
         score_breakdown: result.score_breakdown,
@@ -278,16 +293,68 @@ export default function MatingAdvisor() {
     toast.success(`Auto-selected ${sorted.length} stallion${sorted.length !== 1 ? 's' : ''} (${disciplineMatch.length} discipline match${disciplineMatch.length !== 1 ? 'es' : ''})`)
   }
 
-  if (!mare) return <p className="text-sm text-stone-400">Loading…</p>
+  const disciplines = Array.from(new Set(allMares.map(m => m.discipline))).sort()
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-xl font-bold">Mating Advisor</h1>
-        <p className="text-sm text-stone-400">Mare: {mare.name} · {mare.discipline.replace(/_/g, ' ')}</p>
       </div>
 
-      {step === 1 && (
+      {/* Mare selector — shown when not coming from a mare profile */}
+      {!urlId && (
+        <div className="bg-white border border-stone-200 rounded-lg p-4 space-y-3">
+          <div className="flex flex-wrap gap-4">
+            <div className="flex-1 min-w-48">
+              <label className="block text-xs font-medium text-stone-500 mb-1">Filter by discipline</label>
+              <select
+                className="input w-full"
+                onChange={e => {
+                  setSelectedMareId('')
+                  setSelectedIds(new Set())
+                  setStep(1)
+                  setResults([])
+                  const val = e.target.value
+                  const first = allMares.find(m => !val || m.discipline === val)
+                  if (first) setSelectedMareId(first.id)
+                }}
+                defaultValue=""
+              >
+                <option value="">All disciplines</option>
+                {disciplines.map(d => (
+                  <option key={d} value={d}>{d.replace(/_/g, ' ')}</option>
+                ))}
+              </select>
+            </div>
+            <div className="flex-1 min-w-48">
+              <label className="block text-xs font-medium text-stone-500 mb-1">Select mare *</label>
+              <select
+                className="input w-full"
+                value={selectedMareId}
+                onChange={e => {
+                  setSelectedMareId(e.target.value)
+                  setSelectedIds(new Set())
+                  setStep(1)
+                  setResults([])
+                }}
+              >
+                <option value="">— choose a mare —</option>
+                {allMares.map(m => (
+                  <option key={m.id} value={m.id}>
+                    {m.name} ({m.discipline.replace(/_/g, ' ')})
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {!mare && <p className="text-sm text-stone-400">{urlId ? 'Loading…' : 'Select a mare above to begin.'}</p>}
+      {mare && <p className="text-sm text-stone-500">Mare: <strong>{mare.name}</strong> · {mare.discipline.replace(/_/g, ' ')}</p>}
+
+
+      {mare && step === 1 && (
         <div className="space-y-5">
           <div>
             <label className="block text-sm font-semibold mb-1">What are you breeding this foal for? *</label>
@@ -375,7 +442,7 @@ export default function MatingAdvisor() {
         </div>
       )}
 
-      {step === 2 && (
+      {mare && step === 2 && (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-base font-semibold">{results.length} results — sorted by compatibility</h2>
@@ -436,7 +503,7 @@ export default function MatingAdvisor() {
       {activeResult && (
         <AnalysisModal
           result={activeResult}
-          mare={mare}
+          mare={mare!}
           goal={goal}
           onClose={() => setActiveResult(null)}
           onSave={() => saveMutation.mutate(activeResult)}

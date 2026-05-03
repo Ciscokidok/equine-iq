@@ -50,6 +50,7 @@ export default function App() {
                 <Route path="/mares/new" element={<MareForm />} />
                 <Route path="/mares/:id" element={<MareProfile />} />
                 <Route path="/mares/:id/edit" element={<MareForm />} />
+                <Route path="/advisor" element={<MatingAdvisor />} />
                 <Route path="/mares/:id/advisor" element={<MatingAdvisor />} />
                 <Route path="/mares/:id/heat-cycles" element={<HeatCycleView />} />
                 <Route path="/pairings" element={<Pairings />} />
