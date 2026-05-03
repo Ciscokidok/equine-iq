@@ -214,10 +214,11 @@ export default function MatingAdvisor() {
 
   const mareId = urlId ?? selectedMareId
 
-  const { data: mare } = useQuery({
+  const { data: mare, isLoading: mareLoading, isError: mareError } = useQuery({
     queryKey: ['mare', mareId],
     queryFn: () => getMare(mareId),
     enabled: !!mareId,
+    retry: 1,
   })
 
   const { data: stallions = [] } = useQuery({
@@ -350,7 +351,9 @@ export default function MatingAdvisor() {
         </div>
       )}
 
-      {!mare && <p className="text-sm text-stone-400">{urlId ? 'Loading…' : 'Select a mare above to begin.'}</p>}
+      {!mare && mareError && <p className="text-sm text-red-500">Could not load mare — she may have been deleted.</p>}
+      {!mare && !mareError && mareLoading && <p className="text-sm text-stone-400">Loading…</p>}
+      {!mare && !mareError && !mareLoading && !mareId && <p className="text-sm text-stone-400">Select a mare above to begin.</p>}
       {mare && <p className="text-sm text-stone-500">Mare: <strong>{mare.name}</strong> · {mare.discipline.replace(/_/g, ' ')}</p>}
 
 
