@@ -1,6 +1,6 @@
-import Anthropic from '@anthropic-ai/sdk'
+import OpenAI from 'openai'
 
-const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
 
 export interface ScoreBreakdown {
   inbreeding_coefficient: number
@@ -57,33 +57,17 @@ Return a JSON object with exactly these fields:
 - top_strengths: array of 3 strings
 - considerations: array of 2–3 strings`
 
-  function extractJson(text: string): PairingAnalysis {
-    // Strip markdown code fences if present
-    const stripped = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '').trim()
-    // Find first { to last } in case there's any surrounding text
-    const start = stripped.indexOf('{')
-    const end = stripped.lastIndexOf('}')
-    if (start === -1 || end === -1) throw new Error('No JSON object found in response')
-    return JSON.parse(stripped.slice(start, end + 1)) as PairingAnalysis
-  }
+  const response = await client.chat.completions.create({
+    model: 'gpt-4o',
+    max_tokens: 1500,
+    temperature: 0.3,
+    response_format: { type: 'json_object' },
+    messages: [
+      { role: 'system', content: SYSTEM_PROMPT(discipline) },
+      { role: 'user', content: userMessage },
+    ],
+  })
 
-  async function attempt(): Promise<PairingAnalysis> {
-    const msg = await client.messages.create({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 1500,
-      temperature: 0.3,
-      system: SYSTEM_PROMPT(discipline),
-      messages: [{ role: 'user', content: userMessage }],
-    })
-
-    const text = msg.content[0].type === 'text' ? msg.content[0].text : ''
-    return extractJson(text)
-  }
-
-  try {
-    return await attempt()
-  } catch {
-    // retry once on parse failure
-    return await attempt()
-  }
+  const text = response.choices[0].message.content ?? '{}'
+  return JSON.parse(text) as PairingAnalysis
 }
