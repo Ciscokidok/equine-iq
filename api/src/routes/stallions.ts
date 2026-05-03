@@ -17,6 +17,9 @@ const StallionSchema = z.object({
   offspringCount: z.number().default(0),
   offspringPerformanceSummary: z.string().optional(),
   conformationNotes: z.string().optional(),
+  registrationNumber: z.string().optional(),
+  epdNotes: z.string().optional(),
+  externalProfileUrl: z.string().url().optional().or(z.literal('')),
   pedigree: z.record(z.any()).optional(),
 })
 

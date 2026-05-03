@@ -69,6 +69,9 @@ model Horse {
   studBookingUrl              String?
   offspringCount              Int        @default(0)
   offspringPerformanceSummary String?
+  registrationNumber          String?
+  epdNotes                    String?
+  externalProfileUrl          String?
   createdByUser               String?    // null = seed data
   createdAt                   DateTime   @default(now())
   updatedAt                   DateTime   @updatedAt

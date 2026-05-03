@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useParams } from 'react-router-dom'
+import { stallionDataQuality } from '@/lib/dataQuality'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { getMare } from '@/api/mares'
@@ -25,6 +26,14 @@ function SeverityBadge({ severity }: { severity: RiskFlag['severity'] }) {
   return <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${map[severity]}`}>{severity}</span>
 }
 
+const TIER_STYLE = {
+  gold: 'bg-yellow-100 text-yellow-800',
+  silver: 'bg-stone-100 text-stone-600',
+  bronze: 'bg-orange-100 text-orange-700',
+}
+
+const TIER_LABEL = { gold: '🥇 Gold data', silver: '🥈 Silver data', bronze: '🥉 Bronze data' }
+
 function AnalysisModal({ result, mare, goal, onClose, onSave }: {
   result: PairingResult
   mare: Horse
@@ -32,6 +41,9 @@ function AnalysisModal({ result, mare, goal, onClose, onSave }: {
   onClose: () => void
   onSave: () => void
 }) {
+  const [showInfo, setShowInfo] = useState(false)
+  const quality = stallionDataQuality(result.stallion as Horse)
+
   const dimensions = [
     { key: 'inbreeding_coefficient', label: 'Inbreeding' },
     { key: 'pedigree_outcrossing', label: 'Outcrossing' },
@@ -53,6 +65,54 @@ function AnalysisModal({ result, mare, goal, onClose, onSave }: {
             <p className="text-xs text-stone-400 mt-1">compatibility</p>
           </div>
         </div>
+
+        {/* Data quality badge */}
+        <div className="flex items-center gap-2 mb-4">
+          <span className={`text-xs px-2 py-0.5 rounded font-medium ${TIER_STYLE[quality.tier]}`}>
+            {TIER_LABEL[quality.tier]} ({quality.score}/{quality.max})
+          </span>
+          <button
+            onClick={() => setShowInfo((v) => !v)}
+            className="text-xs text-stone-400 hover:text-stone-700 underline"
+          >
+            {showInfo ? 'Hide' : 'How accurate is this analysis?'}
+          </button>
+        </div>
+
+        {showInfo && (
+          <div className="mb-5 bg-stone-50 border border-stone-200 rounded-lg p-4 text-xs text-stone-600 space-y-3">
+            <div>
+              <p className="font-semibold text-stone-800 mb-1">What this AI does well</p>
+              <ul className="space-y-1 list-disc pl-4">
+                <li>Discipline fit — identifying whether a stallion's specialty matches your breeding goal</li>
+                <li>Flagging known genetic disease risks by breed (HYPP, WFFS, HERDA, etc.)</li>
+                <li>Coherent reasoning using real equine terminology</li>
+                <li>Quickly narrowing a large field down to candidates worth deeper research</li>
+              </ul>
+            </div>
+            <div>
+              <p className="font-semibold text-stone-800 mb-1">Where professionals outperform it</p>
+              <ul className="space-y-1 list-disc pl-4">
+                <li><strong>Pedigree verification</strong> — it trusts whatever names you entered. Real consultants cross-check AQHA, KWPN, and USEF studbooks</li>
+                <li><strong>EPD / breeding values</strong> — AQHA publishes Expected Progeny Differences; KWPN publishes breeding values. This AI doesn't have those unless you paste them into the stallion's EPD notes</li>
+                <li><strong>Physical evaluation</strong> — conformation scoring without watching the horse move and assessing hoof angles, topline, and joint quality in person is inherently limited</li>
+                <li><strong>Market knowledge</strong> — a consultant knows which bloodlines are trending at auctions and which are oversaturated</li>
+                <li><strong>Inbreeding math</strong> — Wright's coefficient requires a fully verified multi-generation pedigree. This tool counts name occurrences as an approximation</li>
+              </ul>
+            </div>
+            <div>
+              <p className="font-semibold text-stone-800 mb-1">Data quality: {quality.tier} ({quality.score}/{quality.max} points)</p>
+              {quality.missing.length > 0 && (
+                <p className="text-stone-500">
+                  Add these to improve accuracy: {quality.missing.join(', ')}
+                </p>
+              )}
+              <p className="mt-1 text-stone-400 italic">
+                Treat this as a first-pass filter, then consult a professional for your top 2–3 candidates.
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Score breakdown */}
         <div className="mb-5">
@@ -193,7 +253,6 @@ export default function MatingAdvisor() {
 
   const filteredStallions = stallions.filter((s) => {
     if (maxFee && s.studFee && s.studFee > parseInt(maxFee)) return false
-    if (mare && s.discipline !== mare.discipline) return false
     return true
   })
 
@@ -242,12 +301,13 @@ export default function MatingAdvisor() {
           <div>
             <p className="text-sm font-semibold mb-2">
               Select stallions to analyze ({selectedIds.size}/10)
-              <span className="text-xs text-stone-400 font-normal ml-2">— showing {mare.discipline.replace(/_/g, ' ')} discipline matches</span>
+              <span className="text-xs text-stone-400 font-normal ml-2">— {filteredStallions.filter(s => s.discipline === mare.discipline).length} discipline matches, {filteredStallions.length} total</span>
             </p>
             <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
               {filteredStallions.map((stallion) => {
                 const sel = selectedIds.has(stallion.id)
                 const noData = !stallion.offspringPerformanceSummary
+                const disciplineMismatch = stallion.discipline !== mare.discipline
                 return (
                   <button
                     key={stallion.id}
@@ -263,19 +323,20 @@ export default function MatingAdvisor() {
                   >
                     <p className="font-medium text-sm">{stallion.name}</p>
                     <p className="text-xs text-stone-400">{stallion.breed}</p>
-                    <div className="flex items-center gap-2 mt-1">
+                    <div className="flex items-center gap-2 mt-1 flex-wrap">
                       {stallion.studFee ? (
                         <span className="text-xs text-stone-500">${stallion.studFee.toLocaleString()}</span>
                       ) : (
                         <span className="text-xs text-stone-300">fee n/a</span>
                       )}
+                      {disciplineMismatch && <span className="text-xs text-amber-600 italic">cross-discipline</span>}
                       {noData && <span className="text-xs text-stone-300 italic">insufficient data</span>}
                     </div>
                   </button>
                 )
               })}
               {filteredStallions.length === 0 && (
-                <p className="col-span-3 text-sm text-stone-400 py-4">No stallions match the current filters.</p>
+                <p className="col-span-3 text-sm text-stone-400 py-4">No stallions in catalog yet. Import some via Claude Desktop or the Stallion Catalog.</p>
               )}
             </div>
           </div>

@@ -17,6 +17,9 @@ export interface Horse {
   studBookingUrl?: string
   offspringCount: number
   offspringPerformanceSummary?: string
+  registrationNumber?: string
+  epdNotes?: string
+  externalProfileUrl?: string
   createdAt: string
 }
 

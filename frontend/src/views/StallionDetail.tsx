@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { getStallion } from '@/api/stallions'
 import GeneticRiskPanel from '@/components/GeneticRiskPanel'
+import { stallionDataQuality } from '@/lib/dataQuality'
 
 export default function StallionDetail() {
   const { id } = useParams<{ id: string }>()
@@ -16,6 +17,14 @@ export default function StallionDetail() {
   if (isError || !stallion) return <p className="text-sm text-red-500">Stallion not found.</p>
 
   const pedigree = stallion.pedigree as Record<string, any>
+  const quality = stallionDataQuality(stallion)
+  const registryLinks = [
+    { label: 'AQHA', url: `https://www.aqha.com/horse-search?q=${encodeURIComponent(stallion.name)}`, disciplines: ['quarter_horse', 'paint', 'reining', 'cutting', 'barrel_racing'] },
+    { label: 'KWPN', url: `https://www.kwpn.nl/paard/search?q=${encodeURIComponent(stallion.name)}`, disciplines: ['warmblood', 'sport_horse', 'dressage', 'hunter_jumper', 'eventing'] },
+    { label: 'NRHA', url: `https://www.nrha.com/index.php?option=com_horses&task=search&q=${encodeURIComponent(stallion.name)}`, disciplines: ['reining'] },
+    { label: 'USEF', url: `https://www.usef.org/search#q=${encodeURIComponent(stallion.name)}&t=Horse`, disciplines: ['dressage', 'hunter_jumper', 'eventing', 'sport_horse'] },
+  ].filter((r) => r.disciplines.includes(stallion.discipline))
+
   const inquiryBody = encodeURIComponent(
     `Hello,\n\nI am interested in breeding services for ${stallion.name}.\n\nPlease provide availability and pricing information.\n\nThank you.`,
   )
@@ -70,6 +79,19 @@ export default function StallionDetail() {
         </div>
       )}
 
+      {/* Data quality + registry links */}
+      <div className="flex flex-wrap items-center gap-3">
+        <span className={`text-xs px-2 py-0.5 rounded font-medium ${quality.tier === 'gold' ? 'bg-yellow-100 text-yellow-800' : quality.tier === 'silver' ? 'bg-stone-100 text-stone-600' : 'bg-orange-100 text-orange-700'}`}>
+          {quality.tier === 'gold' ? '🥇' : quality.tier === 'silver' ? '🥈' : '🥉'} {quality.tier} data ({quality.score}/{quality.max})
+        </span>
+        {registryLinks.map((r) => (
+          <a key={r.label} href={r.url} target="_blank" rel="noopener noreferrer"
+            className="text-xs border border-stone-200 px-2 py-0.5 rounded hover:bg-stone-50 text-stone-600">
+            Look up on {r.label} →
+          </a>
+        ))}
+      </div>
+
       {/* Details */}
       <div className="bg-white border border-stone-200 rounded-lg p-4 grid sm:grid-cols-2 gap-3 text-sm">
         {stallion.studFee != null && (
@@ -102,6 +124,20 @@ export default function StallionDetail() {
             <span className="font-medium">{stallion.heightHands} hh</span>
           </div>
         )}
+        {stallion.registrationNumber && (
+          <div>
+            <span className="text-stone-400">Registration #:</span>{' '}
+            <span className="font-medium font-mono">{stallion.registrationNumber}</span>
+          </div>
+        )}
+        {stallion.externalProfileUrl && (
+          <div className="sm:col-span-2">
+            <a href={stallion.externalProfileUrl} target="_blank" rel="noopener noreferrer"
+              className="text-xs text-brand-700 hover:underline">
+              View official registry profile →
+            </a>
+          </div>
+        )}
       </div>
 
       {stallion.offspringPerformanceSummary && (
@@ -110,6 +146,14 @@ export default function StallionDetail() {
           <p className="text-sm text-stone-700 whitespace-pre-line">
             {stallion.offspringPerformanceSummary}
           </p>
+        </div>
+      )}
+
+      {stallion.epdNotes && (
+        <div className="bg-white border border-stone-200 rounded-lg p-4">
+          <h2 className="text-sm font-semibold mb-2">EPD / Breeding Values</h2>
+          <p className="text-sm text-stone-700 whitespace-pre-line">{stallion.epdNotes}</p>
+          <p className="text-xs text-stone-400 mt-2 italic">Source: manually entered from registry records. Verify against official studbook before breeding decisions.</p>
         </div>
       )}
 
