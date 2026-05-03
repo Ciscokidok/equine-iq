@@ -243,7 +243,15 @@ export default function MatingAdvisor() {
         toast.warning(`${data.errors.length} stallion(s) failed: ${msg}`)
       }
     },
-    onError: () => toast.error('Analysis failed'),
+    onError: (err: any) => {
+      const status = err?.response?.status
+      const msg = err?.response?.data?.message ?? err?.response?.data?.error ?? err?.message ?? 'Analysis failed'
+      if (status === 402) {
+        toast.error('OpenAI API key required — add yours in Account Settings')
+      } else {
+        toast.error(msg)
+      }
+    },
   })
 
   const saveMutation = useMutation({
