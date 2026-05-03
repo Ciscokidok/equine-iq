@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { getMares } from '@/api/mares'
@@ -51,6 +52,7 @@ function buildStallionData(pairings: SavedPairing[]) {
 export default function Dashboard() {
   const { data: mares = [], isLoading: maresLoading } = useQuery({ queryKey: ['mares'], queryFn: getMares })
   const { data: pairings = [] } = useQuery({ queryKey: ['pairings'], queryFn: getPairings })
+  const [disciplineFilter, setDisciplineFilter] = useState('')
 
   const recentPairings = pairings.slice(0, 5)
   const avgScore = pairings.length
@@ -61,11 +63,14 @@ export default function Dashboard() {
   const trendData = buildTrendData(pairings)
   const stallionData = buildStallionData(pairings)
 
+  const disciplines = Array.from(new Set(mares.map(m => m.discipline))).sort()
+  const filteredMares = disciplineFilter ? mares.filter(m => m.discipline === disciplineFilter) : mares
+
   return (
     <div className="space-y-8">
       {/* Mares */}
       <section>
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between mb-3">
           <h2 className="text-lg font-semibold">Your Mares</h2>
           <Link
             to="/mares/new"
@@ -74,6 +79,30 @@ export default function Dashboard() {
             + Add Mare
           </Link>
         </div>
+
+        {disciplines.length > 1 && (
+          <div className="flex flex-wrap gap-2 mb-4">
+            <button
+              onClick={() => setDisciplineFilter('')}
+              className={`text-xs px-3 py-1 rounded-full border transition-colors ${
+                !disciplineFilter ? 'bg-brand-700 text-white border-brand-700' : 'border-stone-200 text-stone-500 hover:border-stone-400'
+              }`}
+            >
+              All
+            </button>
+            {disciplines.map(d => (
+              <button
+                key={d}
+                onClick={() => setDisciplineFilter(d)}
+                className={`text-xs px-3 py-1 rounded-full border transition-colors ${
+                  disciplineFilter === d ? 'bg-brand-700 text-white border-brand-700' : 'border-stone-200 text-stone-500 hover:border-stone-400'
+                }`}
+              >
+                {d.replace(/_/g, ' ')}
+              </button>
+            ))}
+          </div>
+        )}
 
         {maresLoading && <p className="text-sm text-stone-400">Loading...</p>}
         {!maresLoading && mares.length === 0 && (
@@ -86,7 +115,7 @@ export default function Dashboard() {
         )}
 
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {mares.map((mare) => (
+          {filteredMares.map((mare) => (
             <div key={mare.id} className="bg-white border border-stone-200 rounded-lg p-4 flex flex-col gap-2">
               <div>
                 <p className="font-semibold text-stone-900">{mare.name}</p>
