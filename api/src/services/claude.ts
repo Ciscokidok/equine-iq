@@ -1,6 +1,14 @@
 import OpenAI from 'openai'
 
-const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+let _client: OpenAI | null = null
+function getClient(): OpenAI {
+  if (!_client) {
+    const apiKey = process.env.OPENAI_API_KEY
+    if (!apiKey) throw new Error('OPENAI_API_KEY environment variable is not set')
+    _client = new OpenAI({ apiKey })
+  }
+  return _client
+}
 
 export interface ScoreBreakdown {
   inbreeding_coefficient: number
@@ -57,7 +65,7 @@ Return a JSON object with exactly these fields:
 - top_strengths: array of 3 strings
 - considerations: array of 2–3 strings`
 
-  const response = await client.chat.completions.create({
+  const response = await getClient().chat.completions.create({
     model: 'gpt-4o',
     max_tokens: 1500,
     temperature: 0.3,
