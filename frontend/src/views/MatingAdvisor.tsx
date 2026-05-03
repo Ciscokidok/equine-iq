@@ -8,6 +8,7 @@ import type { Horse } from '@/api/mares'
 import client from '@/api/client'
 import { analyzePairings, savePairing } from '@/api/pairings'
 import type { PairingResult, RiskFlag } from '@/api/pairings'
+import GeneticRiskPanel from '@/components/GeneticRiskPanel'
 
 function ScoreRing({ score }: { score: number }) {
   const pct = Math.round(score * 100)
@@ -327,6 +328,12 @@ export default function MatingAdvisor() {
                       <span key={j} className="text-xs bg-stone-100 text-stone-600 px-2 py-0.5 rounded-full">{s}</span>
                     ))}
                   </div>
+                  <GeneticRiskPanel
+                    mareBreed={mare.breed}
+                    stallionBreed={result.stallion.breed}
+                    discipline={mare.discipline}
+                    compact
+                  />
                   <button
                     onClick={() => setActiveResult(result)}
                     className="mt-3 text-xs text-brand-700 hover:underline"

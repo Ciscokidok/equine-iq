@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { getStallion } from '@/api/stallions'
+import GeneticRiskPanel from '@/components/GeneticRiskPanel'
 
 export default function StallionDetail() {
   const { id } = useParams<{ id: string }>()
@@ -132,6 +133,8 @@ export default function StallionDetail() {
           </div>
         </div>
       )}
+
+      <GeneticRiskPanel mareBreed="" stallionBreed={stallion.breed} discipline={stallion.discipline} />
     </div>
   )
 }

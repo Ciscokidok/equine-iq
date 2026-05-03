@@ -2,6 +2,11 @@ import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { getMares } from '@/api/mares'
 import { getPairings } from '@/api/pairings'
+import type { SavedPairing } from '@/api/pairings'
+import {
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  BarChart, Bar, Cell,
+} from 'recharts'
 
 function ScoreBadge({ score }: { score: number }) {
   const pct = Math.round(score * 100)
@@ -9,11 +14,52 @@ function ScoreBadge({ score }: { score: number }) {
   return <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${color}`}>{pct}%</span>
 }
 
+function StatCard({ label, value }: { label: string; value: string | number }) {
+  return (
+    <div className="bg-white border border-stone-200 rounded-lg p-4">
+      <p className="text-2xl font-bold text-stone-900">{value}</p>
+      <p className="text-xs text-stone-400 mt-0.5">{label}</p>
+    </div>
+  )
+}
+
+function buildTrendData(pairings: SavedPairing[]) {
+  return [...pairings]
+    .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+    .map((p) => ({
+      date: new Date(p.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+      score: Math.round(p.compatibilityScore * 100),
+    }))
+}
+
+function buildStallionData(pairings: SavedPairing[]) {
+  const map: Record<string, number[]> = {}
+  for (const p of pairings) {
+    const name = p.stallion.name
+    if (!map[name]) map[name] = []
+    map[name].push(p.compatibilityScore * 100)
+  }
+  return Object.entries(map)
+    .map(([name, scores]) => ({
+      name,
+      avg: scores.reduce((a, b) => a + b, 0) / scores.length,
+    }))
+    .sort((a, b) => b.avg - a.avg)
+    .slice(0, 5)
+}
+
 export default function Dashboard() {
   const { data: mares = [], isLoading: maresLoading } = useQuery({ queryKey: ['mares'], queryFn: getMares })
   const { data: pairings = [] } = useQuery({ queryKey: ['pairings'], queryFn: getPairings })
 
   const recentPairings = pairings.slice(0, 5)
+  const avgScore = pairings.length
+    ? Math.round(pairings.reduce((s, p) => s + p.compatibilityScore * 100, 0) / pairings.length)
+    : null
+  const activeMares = new Set(pairings.map((p) => p.mareId)).size
+
+  const trendData = buildTrendData(pairings)
+  const stallionData = buildStallionData(pairings)
 
   return (
     <div className="space-y-8">
@@ -64,6 +110,68 @@ export default function Dashboard() {
           ))}
         </div>
       </section>
+
+      {/* Analytics */}
+      {(mares.length > 0 || pairings.length > 0) && (
+        <section>
+          <h2 className="text-lg font-semibold mb-4">Analytics</h2>
+
+          {/* Stats row */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+            <StatCard label="Total Mares" value={mares.length} />
+            <StatCard label="Total Pairings" value={pairings.length} />
+            <StatCard label="Avg Compatibility" value={avgScore != null ? `${avgScore}%` : '—'} />
+            <StatCard label="Mares with Pairings" value={activeMares} />
+          </div>
+
+          {/* Score trend */}
+          {trendData.length >= 2 && (
+            <div className="bg-white border border-stone-200 rounded-lg p-4 mb-4">
+              <h3 className="text-sm font-semibold mb-3">Pairing Scores Over Time</h3>
+              <ResponsiveContainer width="100%" height={200}>
+                <LineChart data={trendData} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f5f5f4" />
+                  <XAxis dataKey="date" tick={{ fontSize: 11 }} />
+                  <YAxis domain={[0, 100]} tick={{ fontSize: 11 }} unit="%" />
+                  <Tooltip formatter={(v: number) => `${v}%`} />
+                  <Line
+                    type="monotone"
+                    dataKey="score"
+                    stroke="#16a34a"
+                    strokeWidth={2}
+                    dot={{ r: 4, fill: '#16a34a' }}
+                    activeDot={{ r: 5 }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+
+          {/* Top stallions */}
+          {stallionData.length >= 1 && (
+            <div className="bg-white border border-stone-200 rounded-lg p-4">
+              <h3 className="text-sm font-semibold mb-3">Top Stallions by Avg Score</h3>
+              <ResponsiveContainer width="100%" height={Math.max(120, stallionData.length * 44)}>
+                <BarChart
+                  data={stallionData}
+                  layout="vertical"
+                  margin={{ top: 0, right: 60, left: 0, bottom: 0 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f5f5f4" horizontal={false} />
+                  <XAxis type="number" domain={[0, 100]} tick={{ fontSize: 11 }} unit="%" />
+                  <YAxis dataKey="name" type="category" width={130} tick={{ fontSize: 11 }} />
+                  <Tooltip formatter={(v: number) => `${Math.round(v)}%`} />
+                  <Bar dataKey="avg" radius={[0, 4, 4, 0]}>
+                    {stallionData.map((_, i) => (
+                      <Cell key={i} fill={i === 0 ? '#16a34a' : '#3b82f6'} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+        </section>
+      )}
 
       {/* Recent Pairings */}
       {recentPairings.length > 0 && (
