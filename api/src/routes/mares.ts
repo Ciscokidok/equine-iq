@@ -25,7 +25,10 @@ const HorseSchema = z.object({
 router.get('/', requireAuth, async (req: Request, res: Response) => {
   const userId = getUserId(req)
   const mares = await prisma.horse.findMany({
-    where: { sex: 'mare', createdByUser: userId },
+    where: {
+      sex: 'mare',
+      OR: [{ createdByUser: userId }, { createdByUser: null }],
+    },
     orderBy: { createdAt: 'desc' },
   })
   res.json(mares)

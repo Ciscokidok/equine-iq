@@ -40,7 +40,11 @@ router.post('/analyze', requireAuth, async (req: Request, res: Response) => {
   }
 
   const mare = await prisma.horse.findFirst({
-    where: { id: mare_id, sex: 'mare', createdByUser: userId },
+    where: {
+      id: mare_id,
+      sex: 'mare',
+      OR: [{ createdByUser: userId }, { createdByUser: null }],
+    },
   })
   if (!mare) { res.status(404).json({ error: 'Mare not found' }); return }
 
