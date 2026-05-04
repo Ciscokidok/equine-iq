@@ -836,26 +836,84 @@ function slugId(name: string, suffix: string) {
   return name.toLowerCase().replace(/[^a-z0-9]/g, '-') + suffix
 }
 
+// Upsert a horse by name — updates the existing record if one exists with the
+// same name, otherwise creates a new record with the canonical slug ID.
+// This prevents duplicates when the same horse was previously imported via
+// the /api/stallions/import endpoint (which assigns a UUID id).
+async function upsertByName(
+  name: string,
+  sex: 'stallion' | 'mare',
+  slugSuffix: string,
+  data: Record<string, any>,
+) {
+  const existing = await prisma.horse.findFirst({
+    where: { name: { equals: name, mode: 'insensitive' }, sex },
+  })
+  if (existing) {
+    await prisma.horse.update({ where: { id: existing.id }, data })
+    return
+  }
+  const id = slugId(name, slugSuffix)
+  await prisma.horse.upsert({
+    where: { id },
+    update: data,
+    create: { id, name, sex, ...data },
+  })
+}
+
+// Remove duplicate system records (createdByUser: null) for the same horse
+// name, keeping the canonical slug-ID version when both exist.
+async function deduplicateSystemRecords() {
+  const systemStallions = await prisma.horse.findMany({
+    where: { sex: 'stallion', createdByUser: null },
+    orderBy: { createdAt: 'asc' },
+  })
+  const seen = new Map<string, string>()
+  const toDelete: string[] = []
+  for (const h of systemStallions) {
+    const key = h.name.toLowerCase()
+    if (seen.has(key)) {
+      // Prefer slug IDs (better data) — keep the slug record, delete the UUID one
+      const currentIsSlug = h.id.includes('-seed')
+      const keepId = currentIsSlug ? h.id : seen.get(key)!
+      const deleteId = currentIsSlug ? seen.get(key)! : h.id
+      seen.set(key, keepId)
+      toDelete.push(deleteId)
+    } else {
+      seen.set(key, h.id)
+    }
+  }
+  if (toDelete.length === 0) return
+  // Only delete records with no saved pairings referencing them
+  const safeTodelete = await prisma.horse.findMany({
+    where: {
+      id: { in: toDelete },
+      stallionPairings: { none: {} },
+      marePairings: { none: {} },
+    },
+    select: { id: true, name: true },
+  })
+  if (safeTodelete.length === 0) return
+  console.log(`Removing ${safeTodelete.length} duplicate system stallion(s):`, safeTodelete.map(h => h.name).join(', '))
+  await prisma.horse.deleteMany({ where: { id: { in: safeTodelete.map(h => h.id) } } })
+}
+
 async function main() {
+  console.log('Deduplicating existing system records...')
+  await deduplicateSystemRecords()
+
   console.log('Seeding stallion catalog...')
 
   for (const s of stallions) {
-    await prisma.horse.upsert({
-      where: { id: slugId(s.name, '-seed') },
-      update: {},
-      create: {
-        id: slugId(s.name, '-seed'),
-        name: s.name,
-        sex: 'stallion',
-        breed: s.breed,
-        discipline: s.discipline,
-        studFee: s.studFee ?? null,
-        studLocation: s.studLocation ?? null,
-        offspringCount: s.offspringCount,
-        offspringPerformanceSummary: s.offspringPerformanceSummary,
-        pedigree: s.pedigree,
-        createdByUser: null,
-      },
+    await upsertByName(s.name, 'stallion', '-seed', {
+      breed: s.breed,
+      discipline: s.discipline,
+      studFee: s.studFee ?? null,
+      studLocation: s.studLocation ?? null,
+      offspringCount: s.offspringCount,
+      offspringPerformanceSummary: s.offspringPerformanceSummary,
+      pedigree: s.pedigree,
+      createdByUser: null,
     })
   }
 
@@ -863,29 +921,17 @@ async function main() {
 
   console.log('Seeding thoroughbred stallions...')
   for (const s of thoroughbredStallions) {
-    await prisma.horse.upsert({
-      where: { id: slugId(s.name, '-tb-seed') },
-      update: {
-        studFee: s.studFee ?? null,
-        studLocation: s.studLocation ?? null,
-        offspringCount: s.offspringCount,
-        offspringPerformanceSummary: s.offspringPerformanceSummary,
-      },
-      create: {
-        id: slugId(s.name, '-tb-seed'),
-        name: s.name,
-        sex: 'stallion',
-        breed: s.breed,
-        discipline: s.discipline,
-        studFee: s.studFee ?? null,
-        studLocation: s.studLocation ?? null,
-        studBookingUrl: (s as any).studBookingUrl ?? null,
-        offspringCount: s.offspringCount,
-        offspringPerformanceSummary: s.offspringPerformanceSummary,
-        registrationNumber: (s as any).registrationNumber ?? null,
-        pedigree: s.pedigree,
-        createdByUser: null,
-      },
+    await upsertByName(s.name, 'stallion', '-tb-seed', {
+      breed: s.breed,
+      discipline: s.discipline,
+      studFee: s.studFee ?? null,
+      studLocation: s.studLocation ?? null,
+      studBookingUrl: (s as any).studBookingUrl ?? null,
+      offspringCount: s.offspringCount,
+      offspringPerformanceSummary: s.offspringPerformanceSummary,
+      registrationNumber: (s as any).registrationNumber ?? null,
+      pedigree: s.pedigree,
+      createdByUser: null,
     })
   }
 
@@ -893,27 +939,20 @@ async function main() {
 
   console.log('Seeding Keeneland thoroughbred mare catalog...')
   for (const m of thoroughbredMares) {
-    await prisma.horse.upsert({
-      where: { id: slugId(m.name, '-kb-mare') },
-      update: {},
-      create: {
-        id: slugId(m.name, '-kb-mare'),
-        name: m.name,
-        sex: 'mare',
-        breed: m.breed,
-        discipline: m.discipline,
-        color: m.color ?? null,
-        dateOfBirth: m.dateOfBirth ?? null,
-        heightHands: m.heightHands ?? null,
-        conformationNotes: m.conformationNotes ?? null,
-        performanceRecords: m.performanceRecords ?? [],
-        offspringPerformanceSummary: m.offspringPerformanceSummary ?? null,
-        pedigree: m.pedigree,
-        registrationNumber: (m as any).registrationNumber ?? null,
-        epdNotes: m.epdNotes ?? null,
-        externalProfileUrl: (m as any).externalProfileUrl ?? null,
-        createdByUser: null,
-      },
+    await upsertByName(m.name, 'mare', '-kb-mare', {
+      breed: m.breed,
+      discipline: m.discipline,
+      color: m.color ?? null,
+      dateOfBirth: m.dateOfBirth ?? null,
+      heightHands: m.heightHands ?? null,
+      conformationNotes: m.conformationNotes ?? null,
+      performanceRecords: m.performanceRecords ?? [],
+      offspringPerformanceSummary: m.offspringPerformanceSummary ?? null,
+      pedigree: m.pedigree,
+      registrationNumber: (m as any).registrationNumber ?? null,
+      epdNotes: m.epdNotes ?? null,
+      externalProfileUrl: (m as any).externalProfileUrl ?? null,
+      createdByUser: null,
     })
   }
 
