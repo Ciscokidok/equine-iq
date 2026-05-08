@@ -8,6 +8,7 @@ const NAV = [
   { to: '/pairings', label: 'Saved Pairings' },
   { to: '/stallions', label: 'Stallion Catalog' },
   { to: '/foals', label: 'Foal Tracker' },
+  { to: '/auctions', label: 'Auctions' },
 ]
 
 export default function Layout({ children }: { children: React.ReactNode }) {
