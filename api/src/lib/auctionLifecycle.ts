@@ -1,5 +1,6 @@
 import { prisma } from './prisma'
 import { getIO } from './auctionSocket'
+import { sendStatusChangeNotification } from './auctionNotifications'
 
 function tryBroadcast(auctionId: string, status: string): void {
   try {
@@ -23,6 +24,14 @@ export async function transitionToOpen(): Promise<void> {
   })
 
   for (const { id } of candidates) tryBroadcast(id, 'open')
+
+  for (const { id } of candidates) {
+    try {
+      const watchers = await prisma.auctionWatcher.findMany({ where: { auctionId: id }, select: { email: true } })
+      const emails = watchers.flatMap(w => w.email ? [w.email] : [])
+      if (emails.length > 0) await sendStatusChangeNotification({ emails, auctionId: id, newStatus: 'open' })
+    } catch (e) { console.error('[lifecycle] watcher notify failed auction', id, e) }
+  }
 }
 
 export async function evaluateReserve(auctionId: string): Promise<void> {
@@ -80,6 +89,14 @@ export async function transitionToClosed(): Promise<void> {
     } catch (e) {
       console.error(`[lifecycle] evaluateReserve failed auction ${id}`, e)
     }
+  }
+
+  for (const { id } of candidates) {
+    try {
+      const watchers = await prisma.auctionWatcher.findMany({ where: { auctionId: id }, select: { email: true } })
+      const emails = watchers.flatMap(w => w.email ? [w.email] : [])
+      if (emails.length > 0) await sendStatusChangeNotification({ emails, auctionId: id, newStatus: 'closed' })
+    } catch (e) { console.error('[lifecycle] watcher notify failed auction', id, e) }
   }
 }
 
