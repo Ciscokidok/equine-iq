@@ -1,4 +1,5 @@
 import { prisma } from '../prisma'
+import { broadcastBidUpdate } from '../auctionSocket'
 import type { AuctionHouseAdapter, AuctionSource } from './types'
 
 const adapters = new Map<AuctionSource, AuctionHouseAdapter>()
@@ -30,6 +31,18 @@ export async function activateAdapter(source: AuctionSource): Promise<void> {
       where: { source },
       update: { active: true },
       create: { source, active: true },
+    })
+    adapter.onLotStateUpdate(async (event) => {
+      try {
+        const auction = await prisma.auction.findFirst({
+          where: { auctionSource: event.auctionSource, externalLotId: event.externalLotId },
+        })
+        if (!auction) return
+        const timeRemaining = Math.max(0, Math.floor((auction.endsAt.getTime() - Date.now()) / 1000))
+        broadcastBidUpdate(auction.id, { currentBid: event.currentBid, timeRemainingSeconds: timeRemaining })
+      } catch (e) {
+        console.error('[registry] onLotStateUpdate handler failed', e)
+      }
     })
   } catch (err) {
     activeAdapters.delete(source)

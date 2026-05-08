@@ -31,3 +31,11 @@ export function getIO(): Server {
   if (!io) throw new Error('Socket.io not initialized — call initSocket first')
   return io
 }
+
+export function broadcastBidUpdate(auctionId: string, payload: { currentBid: number; timeRemainingSeconds: number }): void {
+  try { getIO().to(`auction:${auctionId}`).emit('bid', payload) } catch (e) { console.error('[socket] broadcastBidUpdate failed', e) }
+}
+
+export function broadcastStatusChange(auctionId: string, status: string): void {
+  try { getIO().to(`auction:${auctionId}`).emit('status', { status }) } catch (e) { console.error('[socket] broadcastStatusChange failed', e) }
+}
