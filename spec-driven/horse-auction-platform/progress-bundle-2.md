@@ -4,5 +4,5 @@
 
 | Step | Title | Status | Notes |
 |------|-------|--------|-------|
-| STEP-5 | Register skeleton route stubs (501) for all auction routes in api/src/index.ts | pending | |
+| STEP-5 | Register skeleton route stubs (501) for all auction routes in api/src/index.ts | in-progress | |
 | STEP-6 | Add public /auctions routes to frontend App.tsx; stub components; Layout nav link | pending | |
