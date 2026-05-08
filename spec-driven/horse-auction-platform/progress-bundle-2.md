@@ -4,5 +4,5 @@
 
 | Step | Title | Status | Notes |
 |------|-------|--------|-------|
-| STEP-5 | Register skeleton route stubs (501) for all auction routes in api/src/index.ts | pending | |
-| STEP-6 | Add public /auctions routes to frontend App.tsx; stub components; Layout nav link | pending | |
+| STEP-5 | Register skeleton route stubs (501) for all auction routes in api/src/index.ts | done | All 6 routers mounted after initSocket; tsc passes |
+| STEP-6 | Add public /auctions routes to frontend App.tsx; stub components; Layout nav link | done | /auctions outside ProtectedRoute; /auctions/create before /auctions/:id; Auctions nav link added; tsc passes |

@@ -16,6 +16,13 @@ import HeatCycleView from '@/views/HeatCycleView'
 import Pricing from '@/views/Pricing'
 import ClaimAccount from '@/views/ClaimAccount'
 import AccountSettings from '@/views/AccountSettings'
+import AuctionCatalog from '@/views/AuctionCatalog'
+import AuctionDetail from '@/views/AuctionDetail'
+import CreateListing from '@/views/CreateListing'
+import SellerDashboard from '@/views/SellerDashboard'
+import BuyerDashboard from '@/views/BuyerDashboard'
+import VettingQueue from '@/views/admin/VettingQueue'
+import BidderApproval from '@/views/admin/BidderApproval'
 
 function useAuth() {
   const [token, setToken] = useState(() => localStorage.getItem('auth_token'))
@@ -39,6 +46,34 @@ export default function App() {
       <Route path="/login" element={<Login />} />
       <Route path="/pricing" element={<Pricing />} />
       <Route path="/account/claim" element={<ClaimAccount />} />
+      {/* Public auction routes — no auth required */}
+      {/* /auctions/create MUST be before /auctions/:id */}
+      <Route
+        path="/auctions/create"
+        element={
+          <ProtectedRoute>
+            <Layout>
+              <CreateListing />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/auctions/:id"
+        element={
+          <Layout>
+            <AuctionDetail />
+          </Layout>
+        }
+      />
+      <Route
+        path="/auctions"
+        element={
+          <Layout>
+            <AuctionCatalog />
+          </Layout>
+        }
+      />
       <Route
         path="/*"
         element={
@@ -60,6 +95,10 @@ export default function App() {
                 <Route path="/stallions" element={<StallionCatalog />} />
                 <Route path="/horses/:id/pedigree" element={<PedigreeView />} />
                 <Route path="/foals" element={<FoalTracker />} />
+                <Route path="/my-listings" element={<SellerDashboard />} />
+                <Route path="/my-bids" element={<BuyerDashboard />} />
+                <Route path="/admin/vetting" element={<VettingQueue />} />
+                <Route path="/admin/bidders" element={<BidderApproval />} />
               </Routes>
             </Layout>
           </ProtectedRoute>
