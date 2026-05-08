@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express'
 import { requireAuth, getUserId } from '../middleware/auth'
+import { requireAdmin } from '../middleware/admin'
 import { prisma } from '../lib/prisma'
 
 const router = Router()
@@ -83,12 +84,42 @@ router.post('/:id/watch', requireAuth, (_req: Request, res: Response) => {
   res.status(501).json({ error: 'Not implemented' })
 })
 
-router.post('/:id/confirm-payment', requireAuth, (_req: Request, res: Response) => {
-  res.status(501).json({ error: 'Not implemented' })
+router.post('/:id/confirm-payment', requireAuth, requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params
+    const auction = await prisma.auction.findUnique({ where: { id } })
+    if (!auction) { res.status(404).json({ error: 'Auction not found' }); return }
+    const updated = await prisma.auction.update({
+      where: { id },
+      data: { paymentConfirmedAt: new Date() },
+    })
+    console.log('[payment] confirmed', id)
+    res.json({ paymentConfirmedAt: updated.paymentConfirmedAt })
+  } catch (err) {
+    res.status(500).json({ error: 'Internal server error' })
+  }
 })
 
-router.post('/:id/offer-next-bidder', requireAuth, (_req: Request, res: Response) => {
-  res.status(501).json({ error: 'Not implemented' })
+router.post('/:id/offer-next-bidder', requireAuth, requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params
+    const auction = await prisma.auction.findUnique({ where: { id } })
+    if (!auction) { res.status(404).json({ error: 'Auction not found' }); return }
+    const nextBid = await prisma.bid.findFirst({
+      where: { auctionId: id, userId: { not: auction.highBidderId } },
+      orderBy: { amount: 'desc' },
+    })
+    if (!nextBid) { res.status(400).json({ error: 'No other bidders' }); return }
+    const offerExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000)
+    await prisma.auction.update({
+      where: { id },
+      data: { highBidderId: nextBid.userId, sellerDecisionDeadline: offerExpiresAt },
+    })
+    console.log('[offer-next]', nextBid.userId)
+    res.json({ offeredBidderId: nextBid.userId, offerExpiresAt })
+  } catch (err) {
+    res.status(500).json({ error: 'Internal server error' })
+  }
 })
 
 export default router
