@@ -157,6 +157,17 @@ router.get('/my-bids', requireAuth, async (req: Request, res: Response) => {
   }
 })
 
+router.get('/my-approval-status', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const userId = getUserId(req)
+    const approval = await prisma.bidderApproval.findUnique({ where: { userId } })
+    if (!approval) { res.json({ status: null }); return }
+    res.json({ status: approval.status, depositConfirmedAt: approval.depositConfirmedAt })
+  } catch (err) {
+    res.status(500).json({ error: 'Internal server error' })
+  }
+})
+
 router.get('/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params
