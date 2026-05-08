@@ -3,6 +3,8 @@ import { createServer } from 'http'
 import express from 'express'
 import cors from 'cors'
 import { initSocket } from './lib/auctionSocket'
+import { registerAdapter, initRegistry } from './lib/adapters/registry'
+import { BidpathAdapter } from './lib/adapters/BidpathAdapter'
 import authRouter from './routes/auth'
 import auctionsRouter from './routes/auctions'
 import listingsRouter from './routes/listings'
@@ -43,6 +45,8 @@ app.use('/api/settings', settingsRouter)
 const PORT = parseInt(process.env.PORT ?? '3001')
 const httpServer = createServer(app)
 initSocket(httpServer)
+registerAdapter('bidpath', new BidpathAdapter())
+initRegistry().catch(e => console.error('[startup] initRegistry failed', e))
 
 app.use('/api/auctions', auctionsRouter)
 app.use('/api/listings', listingsRouter)
