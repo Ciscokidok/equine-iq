@@ -33,9 +33,30 @@ router.post('/', requireAuth, async (req: Request, res: Response) => {
   }
 })
 
-// GET /mine — STEP-27 (stub)
-router.get('/mine', requireAuth, (_req: Request, res: Response) => {
-  res.status(501).json({ error: 'Not implemented' })
+// STEP-27: Seller listings dashboard
+router.get('/mine', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const userId = getUserId(req)
+    const listings = await prisma.auctionListing.findMany({
+      where: { sellerId: userId },
+      include: {
+        horse: { select: { name: true, breed: true } },
+        auction: { include: { _count: { select: { bids: true } } } },
+      },
+      orderBy: { createdAt: 'desc' },
+    })
+    const result = listings.map((l) => ({
+      id: l.id,
+      status: l.status,
+      horse: l.horse ? { name: l.horse.name, breed: l.horse.breed } : null,
+      bidCount: l.auction?._count.bids ?? null,
+      currentHighBid: l.auction?.currentBid ?? null,
+      createdAt: l.createdAt,
+    }))
+    res.json(result)
+  } catch (err) {
+    res.status(500).json({ error: 'Internal server error' })
+  }
 })
 
 // STEP-9: Document upload URL
