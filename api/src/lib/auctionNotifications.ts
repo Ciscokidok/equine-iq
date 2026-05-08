@@ -44,7 +44,15 @@ export async function sendOutbidNotification(opts: {
   horseName: string
   auctionId: string
 }): Promise<void> {
-  console.log('[outbid-notify]', opts)
+  if (isTest()) { console.log('[outbid-notify]', opts); return }
+  try {
+    await sgMail.send({
+      to: opts.bidderEmail,
+      from: FROM,
+      subject: `You've been outbid on ${opts.horseName}`,
+      text: `You've been outbid. View auction: /auctions/${opts.auctionId}`,
+    })
+  } catch (e) { console.error('[outbid-notify] sendgrid failed', e) }
 }
 
 export async function sendStatusChangeNotification(opts: {
@@ -52,5 +60,15 @@ export async function sendStatusChangeNotification(opts: {
   auctionId: string
   newStatus: string
 }): Promise<void> {
-  console.log('[status-change-notify]', opts)
+  if (isTest()) { console.log('[status-change-notify]', opts); return }
+  for (const email of opts.emails) {
+    try {
+      await sgMail.send({
+        to: email,
+        from: FROM,
+        subject: `Auction update: now ${opts.newStatus}`,
+        text: `Auction ${opts.auctionId} is now ${opts.newStatus}.`,
+      })
+    } catch (e) { console.error('[status-change-notify] sendgrid failed for', email, e) }
+  }
 }
