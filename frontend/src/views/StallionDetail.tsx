@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom'
 import { getStallion } from '@/api/stallions'
 import GeneticRiskPanel from '@/components/GeneticRiskPanel'
 import { stallionDataQuality } from '@/lib/dataQuality'
+import { useStallionSaleStats } from '@/api/auctionSales'
 
 export default function StallionDetail() {
   const { id } = useParams<{ id: string }>()
@@ -12,6 +13,8 @@ export default function StallionDetail() {
     queryKey: ['stallion', id],
     queryFn: () => getStallion(id!),
   })
+
+  const { data: saleStats } = useStallionSaleStats(id ?? '')
 
   if (isLoading) return <p className="text-sm text-stone-400">Loading…</p>
   if (isError || !stallion) return <p className="text-sm text-red-500">Stallion not found.</p>
@@ -177,6 +180,29 @@ export default function StallionDetail() {
           </div>
         </div>
       )}
+
+      {/* Progeny Sale Stats */}
+      <div className="bg-white border border-stone-200 rounded-lg p-4">
+        <h2 className="text-sm font-semibold mb-3">Progeny Sale Stats</h2>
+        {!saleStats || saleStats.count === 0 ? (
+          <p className="text-sm text-stone-400">No auction data recorded.</p>
+        ) : (
+          <>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+              {([['Avg', saleStats.avg], ['Median', saleStats.median], ['High', saleStats.high], ['Low', saleStats.low]] as [string, number | null][]).map(([label, val]) => (
+                <div key={label}>
+                  <p className="text-xs text-stone-400">{label}</p>
+                  <p className="font-medium">{val != null ? val.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }) : '—'}</p>
+                </div>
+              ))}
+            </div>
+            <p className="text-xs text-stone-400 mt-2">{saleStats.count} sale{saleStats.count !== 1 ? 's' : ''} recorded</p>
+            {saleStats.lowSampleWarning && (
+              <p className="text-xs text-yellow-600 mt-1">Low sample — fewer than 3 sales</p>
+            )}
+          </>
+        )}
+      </div>
 
       <GeneticRiskPanel mareBreed="" stallionBreed={stallion.breed} discipline={stallion.discipline} />
     </div>

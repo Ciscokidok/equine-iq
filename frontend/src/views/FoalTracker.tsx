@@ -8,7 +8,120 @@ import {
   addFoalResult,
 } from '@/api/foals'
 import type { Foal, CreateFoalData, CreateFoalResultData } from '@/api/foals'
+import { useAuctionSales, useAddAuctionSale } from '@/api/auctionSales'
 import { toast } from 'sonner'
+
+const SALE_TYPES = ['weanling', 'yearling', 'two_year_old_in_training', 'mixed_age'] as const
+
+function AuctionSalesSection({ foalId }: { foalId: string }) {
+  const { data: sales = [] } = useAuctionSales(foalId)
+  const addSale = useAddAuctionSale()
+  const [showForm, setShowForm] = useState(false)
+  const [form, setForm] = useState({ salePrice: '', saleDate: '', saleType: 'weanling' as typeof SALE_TYPES[number], auctionHouse: '', hipNumber: '', buyer: '', notes: '' })
+
+  const handleSubmit = () => {
+    const price = parseFloat(form.salePrice)
+    if (!form.saleDate || !form.saleType || isNaN(price) || price <= 0) { toast.error('Sale price, date, and type are required'); return }
+    addSale.mutate({
+      foalId,
+      data: {
+        salePrice: price,
+        saleDate: form.saleDate,
+        saleType: form.saleType,
+        auctionHouse: form.auctionHouse || undefined,
+        hipNumber: form.hipNumber || undefined,
+        buyer: form.buyer || undefined,
+        notes: form.notes || undefined,
+      },
+    }, {
+      onSuccess: () => {
+        setForm({ salePrice: '', saleDate: '', saleType: 'weanling', auctionHouse: '', hipNumber: '', buyer: '', notes: '' })
+        setShowForm(false)
+      },
+    })
+  }
+
+  return (
+    <div className="mt-3 border-t border-stone-100 pt-3 space-y-3">
+      <div className="flex items-center justify-between">
+        <p className="text-xs font-medium text-stone-600">Auction Sales</p>
+        <button
+          onClick={() => setShowForm(!showForm)}
+          className="text-xs border border-stone-200 px-2 py-0.5 rounded hover:bg-stone-50"
+        >
+          {showForm ? 'Cancel' : '+ Record Sale'}
+        </button>
+      </div>
+
+      {sales.length === 0 && !showForm && (
+        <p className="text-xs text-stone-400">No sales recorded. Use "Record Sale" to log an auction result.</p>
+      )}
+
+      {sales.length > 0 && (
+        <table className="w-full text-xs">
+          <thead>
+            <tr className="text-stone-400">
+              <th className="text-left py-1">Date</th>
+              <th className="text-left py-1">Price</th>
+              <th className="text-left py-1">Type</th>
+              <th className="text-left py-1">House</th>
+            </tr>
+          </thead>
+          <tbody>
+            {sales.map((s) => (
+              <tr key={s.id} className="border-t border-stone-50">
+                <td className="py-1">{new Date(s.saleDate).toLocaleDateString()}</td>
+                <td className="py-1">{s.salePrice.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })}</td>
+                <td className="py-1">{s.saleType.replace(/_/g, ' ')}</td>
+                <td className="py-1">{s.auctionHouse ?? '—'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+
+      {showForm && (
+        <div className="grid sm:grid-cols-2 gap-2">
+          <div>
+            <label className="block text-xs text-stone-500 mb-0.5">Sale Price ($) *</label>
+            <input type="number" className="input w-full" value={form.salePrice} onChange={(e) => setForm((p) => ({ ...p, salePrice: e.target.value }))} placeholder="e.g. 25000" />
+          </div>
+          <div>
+            <label className="block text-xs text-stone-500 mb-0.5">Sale Date *</label>
+            <input type="date" className="input w-full" value={form.saleDate} onChange={(e) => setForm((p) => ({ ...p, saleDate: e.target.value }))} />
+          </div>
+          <div>
+            <label className="block text-xs text-stone-500 mb-0.5">Sale Type *</label>
+            <select className="input w-full" value={form.saleType} onChange={(e) => setForm((p) => ({ ...p, saleType: e.target.value as typeof SALE_TYPES[number] }))}>
+              {SALE_TYPES.map((t) => <option key={t} value={t}>{t.replace(/_/g, ' ')}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs text-stone-500 mb-0.5">Auction House</label>
+            <input className="input w-full" value={form.auctionHouse} onChange={(e) => setForm((p) => ({ ...p, auctionHouse: e.target.value }))} placeholder="e.g. Keeneland" />
+          </div>
+          <div>
+            <label className="block text-xs text-stone-500 mb-0.5">Hip #</label>
+            <input className="input w-full" value={form.hipNumber} onChange={(e) => setForm((p) => ({ ...p, hipNumber: e.target.value }))} placeholder="e.g. 342" />
+          </div>
+          <div>
+            <label className="block text-xs text-stone-500 mb-0.5">Buyer</label>
+            <input className="input w-full" value={form.buyer} onChange={(e) => setForm((p) => ({ ...p, buyer: e.target.value }))} />
+          </div>
+          <div className="sm:col-span-2">
+            <button
+              onClick={handleSubmit}
+              disabled={!form.salePrice || !form.saleDate || addSale.isPending}
+              className="bg-brand-700 text-white px-3 py-1.5 rounded text-xs hover:bg-brand-900 disabled:opacity-50"
+            >
+              {addSale.isPending ? 'Saving…' : 'Save Sale'}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
 
 function FoalCard({ foal }: { foal: Foal }) {
   const qc = useQueryClient()
@@ -108,6 +221,8 @@ function FoalCard({ foal }: { foal: Foal }) {
           >
             {showResultForm ? 'Cancel' : '+ Add Result'}
           </button>
+
+          <AuctionSalesSection foalId={foal.id} />
 
           {showResultForm && (
             <div className="grid sm:grid-cols-2 gap-2">
