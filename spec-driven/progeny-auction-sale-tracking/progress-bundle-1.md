@@ -15,9 +15,12 @@ Progress: 0/2 steps complete
 
 | Step | Status | Commit | Notes |
 |------|--------|--------|-------|
-| STEP-1 | pending | — | — |
+| STEP-1 | in-progress | — | — |
 | STEP-2 | pending | — | — |
 
 ## Session Log
 
-_(no sessions yet)_
+### 2026-05-08 — Bundle 1 execution
+- Completed: none
+- Decisions: none
+- Next: STEP-1: Add AuctionSaleType enum and AuctionSale model to Prisma schema
