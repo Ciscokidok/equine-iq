@@ -49,6 +49,53 @@ enum AuctionSaleType {
   mixed_age
 }
 
+enum ListingStatus {
+  pending_review
+  approved
+  rejected
+  scheduled
+  open
+  closed
+  seller_deciding
+  counter_offering
+  sold
+  passed
+}
+
+enum ReserveBehavior {
+  auto_pass
+  seller_decision
+  counter_offer
+}
+
+enum BidderApprovalStatus {
+  pending
+  approved
+  suspended
+}
+
+enum AuctionSource {
+  internal
+  bidpath
+  keeneland
+  fasig_tipton
+  obs
+}
+
+enum VettingDocType {
+  coggins_test
+  vet_certificate
+  registration_papers
+  radiographs
+  endoscopy_video
+}
+
+enum VettingDocScanStatus {
+  pending_scan
+  clean
+  rejected
+}
+
 model User {
   id                       String    @id @default(uuid())
   email                    String    @unique
@@ -56,6 +103,7 @@ model User {
   farmName                 String?
   primaryDiscipline        Discipline?
   plan                     Plan      @default(free)
+  role                     String    @default("user")
   subscriptionStatus       String?
   subscriptionEndDate      DateTime?
   stripeCustomerId         String?   @unique
@@ -64,10 +112,15 @@ model User {
   claimTokenExpiry         DateTime?
   createdAt                DateTime  @default(now())
 
-  mares        Horse[]         @relation("UserMares")
-  pairings     MatingPairing[]
-  foals        Foal[]
-  auctionSales AuctionSale[]
+  mares            Horse[]           @relation("UserMares")
+  pairings         MatingPairing[]
+  foals            Foal[]
+  auctionSales     AuctionSale[]
+  sellerListings   AuctionListing[]  @relation("SellerListings")
+  bids             Bid[]
+  bidderApproval   BidderApproval?
+  auctionWatchers  AuctionWatcher[]
+  highBidAuctions  Auction[]         @relation("AuctionHighBidder")
 }
 
 model Horse {
@@ -100,6 +153,7 @@ model Horse {
   foalMares        Foal[]          @relation("FoalMare")
   foalSires        Foal[]          @relation("FoalSire")
   heatCycles       HeatCycle[]
+  auctionListings  AuctionListing[]
 
   @@index([sex])
   @@index([discipline])
@@ -200,4 +254,143 @@ model AuctionSale {
   @@index([foalId])
   @@index([userId])
   @@index([userId, saleDate])
+}
+
+model AuctionListing {
+  id                String        @id @default(uuid())
+  horseId           String
+  sellerId          String
+  status            ListingStatus @default(pending_review)
+  reservePrice      Int?
+  reserveBehavior   ReserveBehavior @default(auto_pass)
+  buyersPremiumPct  Float         @default(10)
+  notes             String?
+  vetApprovedAt     DateTime?
+  vetRejectedAt     DateTime?
+  vetRejectedReason String?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  horse            Horse            @relation(fields: [horseId], references: [id])
+  seller           User             @relation("SellerListings", fields: [sellerId], references: [id])
+  vettingDocuments VettingDocument[]
+  auction          Auction?
+
+  @@index([sellerId])
+  @@index([status])
+}
+
+model VettingDocument {
+  id         String               @id @default(uuid())
+  listingId  String
+  docType    VettingDocType
+  fileName   String
+  s3Key      String
+  mimeType   String
+  scanStatus VettingDocScanStatus @default(pending_scan)
+  uploadedAt DateTime             @default(now())
+
+  listing AuctionListing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  @@index([listingId])
+}
+
+model Auction {
+  id                    String        @id @default(uuid())
+  listingId             String        @unique
+  status                ListingStatus @default(scheduled)
+  startingBid           Int
+  bidIncrement          Int           @default(100)
+  currentBid            Int           @default(0)
+  highBidderId          String?
+  highGuestBidderId     String?
+  startAt               DateTime
+  endsAt                DateTime
+  closedAt              DateTime?
+  sellerDecisionDeadline DateTime?
+  paymentConfirmedAt    DateTime?
+  auctionSource         AuctionSource @default(internal)
+  externalLotId         String?
+  createdAt             DateTime      @default(now())
+  updatedAt             DateTime      @updatedAt
+
+  listing     AuctionListing   @relation(fields: [listingId], references: [id])
+  highBidder  User?            @relation("AuctionHighBidder", fields: [highBidderId], references: [id])
+  highGuest   GuestBidder?     @relation("AuctionHighGuest", fields: [highGuestBidderId], references: [id])
+  bids        Bid[]
+  watchers    AuctionWatcher[]
+
+  @@index([status])
+  @@index([auctionSource, externalLotId])
+}
+
+model Bid {
+  id              String   @id @default(uuid())
+  auctionId       String
+  userId          String?
+  guestBidderId   String?
+  amount          Int
+  isAutoBid       Boolean  @default(false)
+  autoMaxAmount   Int?
+  placedAt        DateTime @default(now())
+
+  auction     Auction      @relation(fields: [auctionId], references: [id])
+  user        User?        @relation(fields: [userId], references: [id])
+  guestBidder GuestBidder? @relation(fields: [guestBidderId], references: [id])
+
+  @@index([auctionId])
+  @@index([userId])
+}
+
+model BidderApproval {
+  id                 String               @id @default(uuid())
+  userId             String?              @unique
+  guestBidderId      String?              @unique
+  status             BidderApprovalStatus @default(pending)
+  depositAmount      Int?
+  depositReference   String?
+  depositConfirmedAt DateTime?
+  approvedAt         DateTime?
+  suspendedAt        DateTime?
+  notes              String?
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+
+  user        User?        @relation(fields: [userId], references: [id])
+  guestBidder GuestBidder? @relation(fields: [guestBidderId], references: [id])
+}
+
+model GuestBidder {
+  id            String   @id @default(uuid())
+  email         String   @unique
+  emailVerified Boolean  @default(false)
+  verifyToken   String?  @unique
+  verifyExpiry  DateTime?
+  createdAt     DateTime @default(now())
+
+  bids           Bid[]
+  bidderApproval BidderApproval?
+  highBidAuctions Auction[]      @relation("AuctionHighGuest")
+}
+
+model AuctionWatcher {
+  id        String   @id @default(uuid())
+  auctionId String
+  userId    String?
+  email     String?
+  createdAt DateTime @default(now())
+
+  auction Auction @relation(fields: [auctionId], references: [id], onDelete: Cascade)
+  user    User?   @relation(fields: [userId], references: [id])
+
+  @@unique([auctionId, userId])
+  @@unique([auctionId, email])
+  @@index([auctionId])
+}
+
+model AdapterConfig {
+  source    String   @id
+  active    Boolean  @default(false)
+  config    Json     @default("{}")
+  updatedAt DateTime @updatedAt
 }
