@@ -52,3 +52,5 @@ app.use('/api/admin/bidders', biddersRouter)
 app.use('/api/admin/adapters', adaptersRouter)
 
 httpServer.listen(PORT, () => console.log(`EquineIQ API running on :${PORT}`))
+
+export { app }
