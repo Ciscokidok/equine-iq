@@ -4,6 +4,12 @@ import express from 'express'
 import cors from 'cors'
 import { initSocket } from './lib/auctionSocket'
 import authRouter from './routes/auth'
+import auctionsRouter from './routes/auctions'
+import listingsRouter from './routes/listings'
+import cronRouter from './routes/cron'
+import vettingRouter from './routes/admin/vetting'
+import biddersRouter from './routes/admin/bidders'
+import adaptersRouter from './routes/admin/adapters'
 import maresRouter from './routes/mares'
 import stallionsRouter from './routes/stallions'
 import pairingsRouter from './routes/pairings'
@@ -37,4 +43,12 @@ app.use('/api/settings', settingsRouter)
 const PORT = parseInt(process.env.PORT ?? '3001')
 const httpServer = createServer(app)
 initSocket(httpServer)
+
+app.use('/api/auctions', auctionsRouter)
+app.use('/api/listings', listingsRouter)
+app.use('/api/admin/cron', cronRouter)
+app.use('/api/admin/vetting', vettingRouter)
+app.use('/api/admin/bidders', biddersRouter)
+app.use('/api/admin/adapters', adaptersRouter)
+
 httpServer.listen(PORT, () => console.log(`EquineIQ API running on :${PORT}`))
