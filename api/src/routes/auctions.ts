@@ -80,8 +80,32 @@ router.post('/:id/auto-bid', requireAuth, (_req: Request, res: Response) => {
   res.status(501).json({ error: 'Not implemented' })
 })
 
-router.post('/:id/watch', requireAuth, (_req: Request, res: Response) => {
-  res.status(501).json({ error: 'Not implemented' })
+router.post('/:id/watch', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params
+    const userId = (req as any).user?.sub as string | undefined
+    const { email } = req.body as { email?: string }
+
+    if (userId) {
+      await prisma.auctionWatcher.upsert({
+        where: { auctionId_userId: { auctionId: id, userId } },
+        update: {},
+        create: { auctionId: id, userId },
+      })
+    } else if (email) {
+      await prisma.auctionWatcher.upsert({
+        where: { auctionId_email: { auctionId: id, email } },
+        update: {},
+        create: { auctionId: id, email },
+      })
+    } else {
+      res.status(400).json({ error: 'Provide auth token or email to watch' })
+      return
+    }
+    res.json({ watching: true })
+  } catch (err) {
+    res.status(500).json({ error: 'Internal server error' })
+  }
 })
 
 router.post('/:id/confirm-payment', requireAuth, requireAdmin, async (req: Request, res: Response) => {
