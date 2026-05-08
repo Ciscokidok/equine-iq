@@ -7,4 +7,4 @@
 | STEP-1 | Install npm deps + extend Prisma schema with auction models | done | Migration 20260508010000_add_auction_platform applied; all monetary fields Int; tsc passes |
 | STEP-2 | Upgrade api/src/index.ts to http.createServer; create auctionSocket.ts singleton | done | initSocket called before routes; JWT middleware verifies handshake.auth.token; tsc passes |
 | STEP-3 | Create api/src/lib/adapters/types.ts — AuctionHouseAdapter interface | done | AuctionSource matches Prisma enum; all interface methods defined; tsc passes |
-| STEP-4 | Create api/src/middleware/admin.ts — requireAdmin + requireAdminToken | pending | |
+| STEP-4 | Create api/src/middleware/admin.ts — requireAdmin + requireAdminToken | done | requireAdmin returns 403 for non-admin; requireAdminToken checks Bearer ADMIN_TOKEN; tsc passes |
