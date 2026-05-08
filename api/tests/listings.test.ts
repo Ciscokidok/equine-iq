@@ -2,12 +2,20 @@
  * Integration tests for listing creation, document upload, vetting queue, approve/reject.
  * Requires DATABASE_URL and SECRET_KEY env vars to run against a real DB.
  */
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest'
+import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest'
 import request from 'supertest'
 import { app } from '../src/index'
 import { prisma } from '../src/lib/prisma'
 import { createToken } from '../src/lib/auth'
 import jwt from 'jsonwebtoken'
+
+vi.mock('../src/lib/s3Upload', () => ({
+  getPresignedUploadUrl: vi.fn().mockResolvedValue({
+    uploadUrl: 'https://s3.example.com/presigned',
+    s3Key: 'listings/test/coggins_test/1234-test.pdf',
+  }),
+  getPresignedDownloadUrl: vi.fn().mockResolvedValue('https://s3.example.com/download'),
+}))
 
 // Skip all tests if DATABASE_URL is not set — integration tests need a real DB
 const hasDB = !!process.env.DATABASE_URL
@@ -220,5 +228,41 @@ describeIf('Listing & Vetting Flow', () => {
       .send({ startAt, durationMinutes: 60, startingBid: 100000, bidIncrement: 5000 })
 
     expect(configRes.status).toBe(400)
+  })
+
+  // Test 9: Upload URL — success path returns uploadUrl and documentId
+  it('returns uploadUrl and documentId for valid document upload request', async () => {
+    const createRes = await request(app)
+      .post('/api/listings')
+      .set('Authorization', `Bearer ${sellerAToken}`)
+      .send({ horseId: horseAId })
+    expect(createRes.status).toBe(201)
+    const listingId = createRes.body.id
+
+    const uploadRes = await request(app)
+      .post(`/api/listings/${listingId}/documents/upload-url`)
+      .set('Authorization', `Bearer ${sellerAToken}`)
+      .send({ docType: 'coggins_test', fileName: 'coggins.pdf', mimeType: 'application/pdf' })
+
+    expect(uploadRes.status).toBe(200)
+    expect(uploadRes.body).toHaveProperty('uploadUrl')
+    expect(uploadRes.body).toHaveProperty('documentId')
+  })
+
+  // Test 10: Upload URL — cross-user access returns 404
+  it('returns 404 when seller B tries to upload to seller A\'s listing', async () => {
+    const createRes = await request(app)
+      .post('/api/listings')
+      .set('Authorization', `Bearer ${sellerAToken}`)
+      .send({ horseId: horseAId })
+    expect(createRes.status).toBe(201)
+    const listingId = createRes.body.id
+
+    const uploadRes = await request(app)
+      .post(`/api/listings/${listingId}/documents/upload-url`)
+      .set('Authorization', `Bearer ${sellerBToken}`)
+      .send({ docType: 'coggins_test', fileName: 'coggins.pdf', mimeType: 'application/pdf' })
+
+    expect(uploadRes.status).toBe(404)
   })
 })
