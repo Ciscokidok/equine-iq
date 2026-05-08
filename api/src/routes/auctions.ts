@@ -1,7 +1,40 @@
 import { Router, Request, Response } from 'express'
+import { z } from 'zod'
 import { requireAuth, getUserId } from '../middleware/auth'
 import { requireAdmin } from '../middleware/admin'
 import { prisma } from '../lib/prisma'
+import { broadcastBidUpdate } from '../lib/auctionSocket'
+
+async function resolveAutoBids(auctionId: string): Promise<void> {
+  for (let i = 0; i < 50; i++) {
+    const auction = await prisma.auction.findUnique({ where: { id: auctionId } })
+    if (!auction || auction.status !== 'open') break
+
+    const challenger = await prisma.bid.findFirst({
+      where: {
+        auctionId,
+        isAutoBid: true,
+        autoMaxAmount: { not: null, gt: auction.currentBid },
+        userId: { not: auction.highBidderId },
+      },
+      orderBy: { autoMaxAmount: 'desc' },
+    })
+    if (!challenger || !challenger.userId) break
+
+    const nextAmount = auction.currentBid + auction.bidIncrement
+    if (nextAmount > (challenger.autoMaxAmount ?? 0)) break
+
+    await prisma.$transaction([
+      prisma.bid.create({
+        data: { auctionId, userId: challenger.userId, amount: nextAmount, isAutoBid: true },
+      }),
+      prisma.auction.update({
+        where: { id: auctionId },
+        data: { currentBid: nextAmount, highBidderId: challenger.userId },
+      }),
+    ])
+  }
+}
 
 const router = Router()
 
@@ -72,8 +105,57 @@ router.get('/:id', (_req: Request, res: Response) => {
   res.status(501).json({ error: 'Not implemented' })
 })
 
-router.post('/:id/bid', requireAuth, (_req: Request, res: Response) => {
-  res.status(501).json({ error: 'Not implemented' })
+router.post('/:id/bid', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const schema = z.object({
+      amount: z.number().int().positive(),
+      isAutoBid: z.boolean().default(false),
+      autoMaxAmount: z.number().int().positive().optional(),
+    })
+    const parsed = schema.safeParse(req.body)
+    if (!parsed.success) { res.status(400).json({ error: parsed.error.flatten() }); return }
+
+    const userId = getUserId(req)
+    const { id } = req.params
+    const { amount, isAutoBid, autoMaxAmount } = parsed.data
+
+    const auction = await prisma.auction.findUnique({ where: { id } })
+    if (!auction) { res.status(404).json({ error: 'Auction not found' }); return }
+    if (auction.status !== 'open') { res.status(400).json({ error: 'Auction is not open' }); return }
+
+    const approval = await prisma.bidderApproval.findUnique({ where: { userId } })
+    if (!approval || approval.status !== 'approved') {
+      res.status(403).json({ error: 'Bidder not approved' })
+      return
+    }
+
+    const minBid = auction.currentBid === 0 ? auction.startingBid : auction.currentBid + auction.bidIncrement
+    if (amount < minBid) {
+      res.status(400).json({ error: `Bid must be at least ${minBid}` })
+      return
+    }
+
+    const txResult = await prisma.$transaction([
+      prisma.bid.create({
+        data: { auctionId: id, userId, amount, isAutoBid, autoMaxAmount: isAutoBid ? (autoMaxAmount ?? null) : null },
+      }),
+      prisma.auction.update({
+        where: { id },
+        data: { currentBid: amount, highBidderId: userId },
+      }),
+    ])
+    const bid = txResult[0]
+
+    await resolveAutoBids(id)
+
+    const updated = await prisma.auction.findUnique({ where: { id } })
+    const timeRemainingSeconds = Math.max(0, Math.floor((updated!.endsAt.getTime() - Date.now()) / 1000))
+    broadcastBidUpdate(id, { currentBid: updated!.currentBid, timeRemainingSeconds })
+
+    res.status(201).json({ bidId: bid.id, currentBid: updated!.currentBid })
+  } catch (err) {
+    res.status(500).json({ error: 'Internal server error' })
+  }
 })
 
 router.post('/:id/auto-bid', requireAuth, (_req: Request, res: Response) => {
