@@ -42,6 +42,13 @@ enum RiskSeverity {
   high
 }
 
+enum AuctionSaleType {
+  weanling
+  yearling
+  two_year_old_in_training
+  mixed_age
+}
+
 model User {
   id                       String    @id @default(uuid())
   email                    String    @unique
@@ -57,9 +64,10 @@ model User {
   claimTokenExpiry         DateTime?
   createdAt                DateTime  @default(now())
 
-  mares    Horse[]         @relation("UserMares")
-  pairings MatingPairing[]
-  foals    Foal[]
+  mares        Horse[]         @relation("UserMares")
+  pairings     MatingPairing[]
+  foals        Foal[]
+  auctionSales AuctionSale[]
 }
 
 model Horse {
@@ -136,11 +144,12 @@ model Foal {
   userId     String
   createdAt  DateTime  @default(now())
 
-  mare     Horse          @relation("FoalMare", fields: [mareId], references: [id])
-  stallion Horse?         @relation("FoalSire", fields: [stallionId], references: [id])
-  pairing  MatingPairing? @relation(fields: [pairingId], references: [id])
-  user     User           @relation(fields: [userId], references: [id])
-  results  FoalResult[]
+  mare         Horse          @relation("FoalMare", fields: [mareId], references: [id])
+  stallion     Horse?         @relation("FoalSire", fields: [stallionId], references: [id])
+  pairing      MatingPairing? @relation(fields: [pairingId], references: [id])
+  user         User           @relation(fields: [userId], references: [id])
+  results      FoalResult[]
+  auctionSales AuctionSale[]
 
   @@index([userId])
   @@index([mareId])
@@ -170,4 +179,25 @@ model HeatCycle {
   mare Horse @relation(fields: [mareId], references: [id], onDelete: Cascade)
 
   @@index([mareId])
+}
+
+model AuctionSale {
+  id           String          @id @default(uuid())
+  foalId       String
+  userId       String
+  salePrice    Float
+  saleDate     DateTime
+  saleType     AuctionSaleType
+  auctionHouse String?
+  hipNumber    String?
+  buyer        String?
+  notes        String?
+  createdAt    DateTime        @default(now())
+
+  foal Foal @relation(fields: [foalId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([foalId])
+  @@index([userId])
+  @@index([userId, saleDate])
 }
