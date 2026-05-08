@@ -177,4 +177,48 @@ describeIf('Listing & Vetting Flow', () => {
 
     expect(res.status).toBe(403)
   })
+
+  // Test 7: Configure on approved listing → 200, status scheduled, Auction created
+  it('configures auction on approved listing and transitions to scheduled', async () => {
+    // Create and approve a listing
+    const createRes = await request(app)
+      .post('/api/listings')
+      .set('Authorization', `Bearer ${sellerAToken}`)
+      .send({ horseId: horseAId })
+    expect(createRes.status).toBe(201)
+    const listingId = createRes.body.id
+
+    await prisma.auctionListing.update({ where: { id: listingId }, data: { status: 'approved' } })
+
+    const startAt = new Date(Date.now() + 60 * 60 * 1000).toISOString()
+    const configRes = await request(app)
+      .post(`/api/listings/${listingId}/configure`)
+      .set('Authorization', `Bearer ${sellerAToken}`)
+      .send({ startAt, durationMinutes: 60, startingBid: 100000, bidIncrement: 5000 })
+
+    expect(configRes.status).toBe(200)
+    expect(configRes.body.status).toBe('scheduled')
+
+    const auction = await prisma.auction.findFirst({ where: { listingId } })
+    expect(auction).not.toBeNull()
+    expect(auction!.status).toBe('scheduled')
+  })
+
+  // Test 8: Configure on pending_review listing → 400
+  it('returns 400 when configuring a listing not in approved status', async () => {
+    const createRes = await request(app)
+      .post('/api/listings')
+      .set('Authorization', `Bearer ${sellerAToken}`)
+      .send({ horseId: horseAId })
+    expect(createRes.status).toBe(201)
+    const listingId = createRes.body.id
+
+    const startAt = new Date(Date.now() + 60 * 60 * 1000).toISOString()
+    const configRes = await request(app)
+      .post(`/api/listings/${listingId}/configure`)
+      .set('Authorization', `Bearer ${sellerAToken}`)
+      .send({ startAt, durationMinutes: 60, startingBid: 100000, bidIncrement: 5000 })
+
+    expect(configRes.status).toBe(400)
+  })
 })
