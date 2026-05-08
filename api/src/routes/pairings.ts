@@ -4,6 +4,7 @@ import { prisma } from '../lib/prisma'
 import { requireAuth, getUserId } from '../middleware/auth'
 import { analyzePairing } from '../services/claude'
 import { decrypt } from '../lib/encryption'
+import { getBulkSaleStats } from '../lib/auctionSaleStats'
 
 const router = Router()
 
@@ -58,6 +59,9 @@ router.post('/analyze', requireAuth, async (req: Request, res: Response) => {
 
   const discipline = mare.discipline as string
 
+  const stallionIds = stallions.map((s) => s.id)
+  const statsMap = await getBulkSaleStats(stallionIds, userId)
+
   const results = await Promise.all(
     stallions.map(async (stallion) => {
       try {
@@ -79,6 +83,7 @@ router.post('/analyze', requireAuth, async (req: Request, res: Response) => {
     .map((r) => ({
       stallion: r.stallion,
       ...r.analysis!,
+      progenySaleStats: statsMap.get(r.stallion.id) ?? null,
     }))
 
   const errors = results.filter((r) => r.error).map((r) => ({ stallion_id: r.stallion.id, error: r.error }))
