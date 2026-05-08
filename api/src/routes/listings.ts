@@ -153,9 +153,51 @@ router.post('/:id/cancel', requireAuth, (_req: Request, res: Response) => {
   res.status(501).json({ error: 'Not implemented' })
 })
 
-// STEP-17: Seller decision (stub — implemented in Bundle 5)
-router.post('/:id/seller-decision', requireAuth, (_req: Request, res: Response) => {
-  res.status(501).json({ error: 'Not implemented' })
+// STEP-17: Seller accept/decline in seller_decision reserve mode
+router.post('/:id/seller-decision', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const schema = z.object({ accept: z.boolean() })
+    const parsed = schema.safeParse(req.body)
+    if (!parsed.success) {
+      res.status(400).json({ error: parsed.error.flatten() })
+      return
+    }
+    const userId = getUserId(req)
+    const { id } = req.params
+    const { accept } = parsed.data
+
+    const listing = await prisma.auctionListing.findUnique({
+      where: { id },
+      include: { auction: true },
+    })
+    if (!listing) {
+      res.status(404).json({ error: 'Not found' })
+      return
+    }
+    if (listing.sellerId !== userId) {
+      res.status(403).json({ error: 'Forbidden' })
+      return
+    }
+    if (!listing.auction || listing.auction.status !== 'seller_deciding') {
+      res.status(400).json({ error: 'Auction is not in seller_deciding status' })
+      return
+    }
+
+    const newStatus = accept ? 'sold' : 'passed'
+    await prisma.$transaction([
+      prisma.auction.update({ where: { id: listing.auction.id }, data: { status: newStatus } }),
+      prisma.auctionListing.update({ where: { id }, data: { status: newStatus } }),
+    ])
+
+    if (accept) {
+      // Invoice notification stub (implemented in STEP-32)
+      console.log(`[notify] Listing ${id} seller accepted — send invoice to bidder ${listing.auction.highBidderId}`)
+    }
+
+    res.json({ status: newStatus })
+  } catch (err) {
+    res.status(500).json({ error: 'Internal server error' })
+  }
 })
 
 export default router
