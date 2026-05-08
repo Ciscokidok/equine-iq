@@ -16,7 +16,7 @@ Progress: 2/2 steps complete
 | Step | Status | Commit | Notes |
 |------|--------|--------|-------|
 | STEP-1 | done | 3b4539c | prisma validate passed; all 3 indexes, Cascade, back-relations verified |
-| STEP-2 | done | pending | migration.sql generated; prisma generate + tsc --noEmit passed |
+| STEP-2 | done | 6355026 | migration.sql generated; prisma generate + tsc --noEmit passed |
 
 ## Session Log
 
