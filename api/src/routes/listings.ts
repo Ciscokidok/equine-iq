@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express'
 import { z } from 'zod'
 import { prisma } from '../lib/prisma'
 import { requireAuth, getUserId } from '../middleware/auth'
-import { getPresignedUploadUrl } from '../lib/s3Upload'
+import { getPresignedUploadUrl, getPresignedDownloadUrl } from '../lib/s3Upload'
 
 const router = Router()
 
@@ -216,6 +216,23 @@ router.post('/:id/seller-decision', requireAuth, async (req: Request, res: Respo
     }
 
     res.json({ status: newStatus })
+  } catch (err) {
+    res.status(500).json({ error: 'Internal server error' })
+  }
+})
+
+// STEP-42: Presigned download URL for a vetting document
+router.get('/:id/documents/:docId/url', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const doc = await prisma.vettingDocument.findFirst({
+      where: { id: req.params.docId, listingId: req.params.id },
+    })
+    if (!doc) {
+      res.status(404).json({ error: 'Not found' })
+      return
+    }
+    const url = await getPresignedDownloadUrl(doc.s3Key)
+    res.json({ url })
   } catch (err) {
     res.status(500).json({ error: 'Internal server error' })
   }
