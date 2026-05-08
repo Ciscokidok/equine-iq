@@ -4,7 +4,7 @@
 
 | Step | Title | Status | Notes |
 |------|-------|--------|-------|
-| STEP-7 | Create api/src/lib/s3Upload.ts — getPresignedUploadUrl + getPresignedDownloadUrl | pending | |
+| STEP-7 | Create api/src/lib/s3Upload.ts — getPresignedUploadUrl + getPresignedDownloadUrl | done | Lazy env validation; key format listings/{listingId}/{docType}/{ts}-{name}; tsc passes |
 | STEP-8 | Implement POST /api/listings — create AuctionListing with status pending_review | pending | |
 | STEP-9 | Implement POST /api/listings/:id/documents/upload-url — presigned S3 PUT URL | pending | |
 | STEP-10 | Implement POST /api/listings/:id/configure — create Auction, transition to scheduled | pending | |
