@@ -77,3 +77,59 @@ export const useConfigureListing = () => {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['myListings'] }),
   })
 }
+
+// Admin: vetting queue
+export const useVettingQueue = () =>
+  useQuery({
+    queryKey: ['vetting-queue'],
+    queryFn: () => client.get('/api/admin/vetting/queue').then((r) => r.data),
+  })
+
+export const useApproveVetting = () => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => client.post(`/api/admin/vetting/${id}/approve`).then((r) => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['vetting-queue'] }),
+  })
+}
+
+export const useRejectVetting = () => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, reason }: { id: string; reason: string }) =>
+      client.post(`/api/admin/vetting/${id}/reject`, { reason }).then((r) => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['vetting-queue'] }),
+  })
+}
+
+// Admin: bidder approval
+export const usePendingBidders = () =>
+  useQuery({
+    queryKey: ['pending-bidders'],
+    queryFn: () => client.get('/api/admin/bidders/pending').then((r) => r.data),
+  })
+
+export const useApproveBidder = () => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => client.post(`/api/admin/bidders/${id}/approve`).then((r) => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['pending-bidders'] }),
+  })
+}
+
+export const useSuspendBidder = () => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => client.post(`/api/admin/bidders/${id}/suspend`).then((r) => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['pending-bidders'] }),
+  })
+}
+
+export const useConfirmDeposit = () => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) =>
+      client.patch(`/api/admin/bidders/${id}/deposit-confirmed`).then((r) => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['pending-bidders'] }),
+  })
+}
