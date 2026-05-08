@@ -24,6 +24,19 @@ export function initSocket(httpServer: HttpServer): Server {
     }
   })
 
+  io.on('connection', (socket: Socket) => {
+    const user = socket.data.user as { sub: string } | undefined
+    if (user?.sub) socket.join(`user:${user.sub}`)
+
+    socket.on('join-auction', (auctionId: string) => {
+      socket.join(`auction:${auctionId}`)
+    })
+
+    socket.on('leave-auction', (auctionId: string) => {
+      socket.leave(`auction:${auctionId}`)
+    })
+  })
+
   return io
 }
 
