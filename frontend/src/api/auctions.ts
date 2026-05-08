@@ -134,6 +134,56 @@ export const useConfirmDeposit = () => {
   })
 }
 
+// Auction detail
+export interface AuctionDetailData {
+  id: string
+  status: string
+  currentBid: number
+  startingBid: number
+  bidIncrement: number
+  buyersPremiumPct: number | null
+  startAt: string
+  endsAt: string
+  timeRemainingSeconds: number
+  horse: {
+    name: string
+    breed: string
+    discipline: string
+    sex: string
+    dateOfBirth?: string
+    pedigree: Record<string, unknown>
+    conformationNotes?: string
+    performanceRecords: unknown[]
+    color?: string
+    heightHands?: number
+    registrationNumber?: string
+  } | null
+  documents: { docType: string; fileName: string; downloadUrl: string }[]
+  bids: { amount: number; placedAt: string; bidderInitials: string; isAutoBid: boolean }[]
+}
+
+export const useAuction = (auctionId: string) =>
+  useQuery({
+    queryKey: ['auction', auctionId],
+    queryFn: () => client.get<AuctionDetailData>(`/api/auctions/${auctionId}`).then((r) => r.data),
+    enabled: !!auctionId,
+  })
+
+export const usePlaceBid = (auctionId: string) => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ amount, isAutoBid, autoMaxAmount }: { amount: number; isAutoBid?: boolean; autoMaxAmount?: number }) =>
+      client.post(`/api/auctions/${auctionId}/bid`, { amount, isAutoBid, autoMaxAmount }).then((r) => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['auction', auctionId] }),
+  })
+}
+
+export const useBidderApproval = () =>
+  useQuery({
+    queryKey: ['bidder-approval'],
+    queryFn: () => client.get<{ status: string | null; depositConfirmedAt?: string }>('/api/auctions/my-approval-status').then((r) => r.data),
+  })
+
 // Catalog
 export interface AuctionCatalogItem {
   id: string
