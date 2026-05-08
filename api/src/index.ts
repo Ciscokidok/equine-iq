@@ -1,6 +1,8 @@
 import 'dotenv/config'
+import { createServer } from 'http'
 import express from 'express'
 import cors from 'cors'
+import { initSocket } from './lib/auctionSocket'
 import authRouter from './routes/auth'
 import maresRouter from './routes/mares'
 import stallionsRouter from './routes/stallions'
@@ -33,4 +35,6 @@ app.use('/api/billing', billingRouter)
 app.use('/api/settings', settingsRouter)
 
 const PORT = parseInt(process.env.PORT ?? '3001')
-app.listen(PORT, () => console.log(`EquineIQ API running on :${PORT}`))
+const httpServer = createServer(app)
+initSocket(httpServer)
+httpServer.listen(PORT, () => console.log(`EquineIQ API running on :${PORT}`))
