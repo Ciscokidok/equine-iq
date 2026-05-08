@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express'
 import { z } from 'zod'
 import { prisma } from '../lib/prisma'
 import { requireAuth, getUserId } from '../middleware/auth'
+import { getStallionSaleStats } from '../lib/auctionSaleStats'
 
 const router = Router()
 
@@ -111,6 +112,22 @@ router.get('/:id', requireAuth, async (req: Request, res: Response) => {
   })
   if (!stallion) { res.status(404).json({ error: 'Not found' }); return }
   res.json(stallion)
+})
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+router.get('/:id/auction-sale-stats', requireAuth, async (req: Request, res: Response) => {
+  const userId = getUserId(req)
+  const mareId = typeof req.query.mareId === 'string' ? req.query.mareId : undefined
+  if (mareId !== undefined && !UUID_RE.test(mareId)) {
+    res.status(400).json({ error: 'mareId must be a valid UUID' }); return
+  }
+
+  const stallion = await prisma.horse.findUnique({ where: { id: req.params.id } })
+  if (!stallion) { res.status(404).json({ error: 'Not found' }); return }
+
+  const stats = await getStallionSaleStats(req.params.id, userId, mareId)
+  res.json(stats)
 })
 
 export default router
