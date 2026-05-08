@@ -25,6 +25,16 @@ const ResultSchema = z.object({
   notes: z.string().optional(),
 })
 
+const AuctionSaleSchema = z.object({
+  salePrice: z.number().positive(),
+  saleDate: z.string().min(1),
+  saleType: z.enum(['weanling', 'yearling', 'two_year_old_in_training', 'mixed_age']),
+  auctionHouse: z.string().optional(),
+  hipNumber: z.string().optional(),
+  buyer: z.string().optional(),
+  notes: z.string().optional(),
+})
+
 router.get('/', requireAuth, async (req: Request, res: Response) => {
   const userId = getUserId(req)
   const foals = await prisma.foal.findMany({
@@ -68,6 +78,7 @@ router.get('/:id', requireAuth, async (req: Request, res: Response) => {
       mare: { select: { id: true, name: true, breed: true } },
       stallion: { select: { id: true, name: true, breed: true } },
       results: { orderBy: { eventDate: 'desc' } },
+      auctionSales: { orderBy: { saleDate: 'desc' } },
     },
   })
   if (!foal) { res.status(404).json({ error: 'Not found' }); return }
@@ -105,6 +116,42 @@ router.delete('/:id', requireAuth, async (req: Request, res: Response) => {
 
   await prisma.foal.delete({ where: { id: req.params.id } })
   res.json({ ok: true })
+})
+
+router.post('/:id/auction-sales', requireAuth, async (req: Request, res: Response) => {
+  const userId = getUserId(req)
+  const foal = await prisma.foal.findFirst({ where: { id: req.params.id, userId } })
+  if (!foal) { res.status(404).json({ error: 'Not found' }); return }
+
+  const parsed = AuctionSaleSchema.safeParse(req.body)
+  if (!parsed.success) { res.status(400).json({ error: parsed.error.flatten() }); return }
+
+  const sale = await prisma.auctionSale.create({
+    data: {
+      foalId: foal.id,
+      userId,
+      salePrice: parsed.data.salePrice,
+      saleDate: new Date(parsed.data.saleDate),
+      saleType: parsed.data.saleType,
+      auctionHouse: parsed.data.auctionHouse,
+      hipNumber: parsed.data.hipNumber,
+      buyer: parsed.data.buyer,
+      notes: parsed.data.notes,
+    },
+  })
+  res.status(201).json(sale)
+})
+
+router.get('/:id/auction-sales', requireAuth, async (req: Request, res: Response) => {
+  const userId = getUserId(req)
+  const foal = await prisma.foal.findFirst({ where: { id: req.params.id, userId } })
+  if (!foal) { res.status(404).json({ error: 'Not found' }); return }
+
+  const sales = await prisma.auctionSale.findMany({
+    where: { foalId: req.params.id },
+    orderBy: { saleDate: 'desc' },
+  })
+  res.json(sales)
 })
 
 router.post('/:id/results', requireAuth, async (req: Request, res: Response) => {

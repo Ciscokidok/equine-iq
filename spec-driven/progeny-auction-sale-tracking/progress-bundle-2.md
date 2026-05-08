@@ -9,16 +9,19 @@ Progress: 0/3 steps complete
 - Stage: depth
 - Last completed: — (not started)
 - Next up: STEP-3 — Implement POST /api/foals/:id/auction-sales
-- Blockers: Bundle 1 must complete first
+- Blockers: none
 
 ## Step Status
 
 | Step | Status | Commit | Notes |
 |------|--------|--------|-------|
-| STEP-3 | pending | — | — |
+| STEP-3 | done | pending | tsc --noEmit passed; POST /:id/auction-sales with Zod validation + ownership check |
 | STEP-4 | pending | — | — |
 | STEP-5 | pending | — | — |
 
 ## Session Log
 
-_(no sessions yet)_
+### 2026-05-08 — Bundle 2 execution
+- Completed: none
+- Decisions: none
+- Next: STEP-3: Implement POST /api/foals/:id/auction-sales
