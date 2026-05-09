@@ -112,15 +112,17 @@ model User {
   claimTokenExpiry         DateTime?
   createdAt                DateTime  @default(now())
 
-  mares            Horse[]           @relation("UserMares")
-  pairings         MatingPairing[]
-  foals            Foal[]
-  auctionSales     AuctionSale[]
-  sellerListings   AuctionListing[]  @relation("SellerListings")
-  bids             Bid[]
-  bidderApproval   BidderApproval?
-  auctionWatchers  AuctionWatcher[]
-  highBidAuctions  Auction[]         @relation("AuctionHighBidder")
+  mares               Horse[]             @relation("UserMares")
+  pairings            MatingPairing[]
+  foals               Foal[]
+  auctionSales        AuctionSale[]
+  sellerListings      AuctionListing[]    @relation("SellerListings")
+  bids                Bid[]
+  bidderApproval      BidderApproval?
+  auctionWatchers     AuctionWatcher[]
+  highBidAuctions     Auction[]           @relation("AuctionHighBidder")
+  importBatches       ImportBatch[]
+  userProviderConfigs UserProviderConfig[]
 }
 
 model Horse {
@@ -154,6 +156,7 @@ model Horse {
   foalSires        Foal[]          @relation("FoalSire")
   heatCycles       HeatCycle[]
   auctionListings  AuctionListing[]
+  saleRecords      SaleRecord[]
 
   @@index([sex])
   @@index([discipline])
@@ -393,4 +396,86 @@ model AdapterConfig {
   active    Boolean  @default(false)
   config    Json     @default("{}")
   updatedAt DateTime @updatedAt
+}
+
+enum DataProvider {
+  sporthorse_data
+  equibase
+  tjcis
+}
+
+enum ImportSource {
+  csv
+  api
+}
+
+enum ImportStatus {
+  processing
+  completed
+  failed
+}
+
+model SaleRecord {
+  id               String    @id @default(cuid())
+  horseId          String
+  importBatchId    String?
+  saleSource       String
+  saleSessionName  String?
+  saleDate         DateTime
+  hipNumber        String?
+  hammerPriceCents Int
+  buyerName        String?
+  consignorName    String?
+  providerRef      String?
+  createdAt        DateTime  @default(now())
+
+  horse       Horse        @relation(fields: [horseId], references: [id])
+  importBatch ImportBatch? @relation(fields: [importBatchId], references: [id])
+
+  @@unique([horseId, hipNumber, saleDate])
+  @@index([horseId])
+  @@index([importBatchId])
+}
+
+model ImportBatch {
+  id               String        @id @default(cuid())
+  importedByUserId String
+  source           ImportSource
+  provider         DataProvider?
+  sourceFileName   String?
+  totalRows        Int           @default(0)
+  createdCount     Int           @default(0)
+  matchedCount     Int           @default(0)
+  errorCount       Int           @default(0)
+  status           ImportStatus  @default(processing)
+  errorLog         Json          @default("[]")
+  createdAt        DateTime      @default(now())
+
+  importedByUser User         @relation(fields: [importedByUserId], references: [id])
+  saleRecords    SaleRecord[]
+
+  @@index([importedByUserId])
+}
+
+model UserProviderConfig {
+  id                  String       @id @default(cuid())
+  userId              String
+  provider            DataProvider
+  encryptedCredential String
+  testStatus          String?
+  testedAt            DateTime?
+  createdAt           DateTime     @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([userId, provider])
+  @@index([userId])
+}
+
+model PlatformProviderConfig {
+  provider            DataProvider @id
+  encryptedCredential String
+  active              Boolean      @default(false)
+  testedAt            DateTime?
+  createdAt           DateTime     @default(now())
 }
