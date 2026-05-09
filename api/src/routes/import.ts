@@ -4,6 +4,8 @@ import { z } from 'zod'
 import { prisma } from '../lib/prisma'
 import { requireAuth, getUserId } from '../middleware/auth'
 import { parseCSV, applyMapping, validateRows } from '../lib/csvParser'
+import { getPreset } from '../lib/columnMappingPresets'
+import { executeImport } from '../lib/importEngine'
 
 const router = Router()
 
@@ -95,6 +97,84 @@ router.post('/preview', requireAuth, async (req: Request, res: Response) => {
   const errorCount = result.filter((r) => r._status === 'error').length
 
   res.json({ validCount, matchedCount, errorCount, rows: result })
+})
+
+const executeSchema = z.object({
+  mappingConfig: z.record(z.string()),
+  rows: z.array(z.record(z.string())),
+  ownership: z.enum(['personal', 'shared']),
+  presetName: z.string().optional(),
+  sourceFileName: z.string().optional(),
+})
+
+// POST /api/import/execute — 60s timeout set in index.ts for this router (see AD-7)
+router.post('/execute', requireAuth, async (req: Request, res: Response) => {
+  const body = executeSchema.safeParse(req.body)
+  if (!body.success) {
+    res.status(400).json({ error: 'Invalid request body', details: body.error.issues })
+    return
+  }
+  const { mappingConfig, rows, ownership, presetName, sourceFileName } = body.data
+  const userId = getUserId(req)
+  const preset = presetName ? getPreset(presetName) : null
+
+  const batch = await prisma.importBatch.create({
+    data: {
+      importedByUserId: userId,
+      source: 'csv',
+      sourceFileName: sourceFileName ?? null,
+      totalRows: rows.length,
+      status: 'processing',
+    },
+  })
+
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const mapped = applyMapping(rows, mappingConfig as any)
+    const validated = validateRows(mapped)
+    const result = await executeImport(validated, ownership, batch.id, userId, preset?.defaultDiscipline)
+
+    const updated = await prisma.importBatch.update({
+      where: { id: batch.id },
+      data: {
+        status: 'completed',
+        createdCount: result.createdCount,
+        matchedCount: result.matchedCount,
+        errorCount: result.errorCount,
+        errorLog: result.errorLog,
+      },
+    })
+    res.json(updated)
+  } catch (e: unknown) {
+    await prisma.importBatch.update({
+      where: { id: batch.id },
+      data: { status: 'failed' },
+    })
+    res.status(500).json({ error: e instanceof Error ? e.message : 'Import failed' })
+  }
+})
+
+// GET /api/import/history
+router.get('/history', requireAuth, async (req: Request, res: Response) => {
+  const userId = getUserId(req)
+  const batches = await prisma.importBatch.findMany({
+    where: { importedByUserId: userId },
+    orderBy: { createdAt: 'desc' },
+  })
+  res.json({ batches })
+})
+
+// GET /api/import/history/:batchId
+router.get('/history/:batchId', requireAuth, async (req: Request, res: Response) => {
+  const userId = getUserId(req)
+  const batch = await prisma.importBatch.findFirst({
+    where: { id: req.params.batchId, importedByUserId: userId },
+  })
+  if (!batch) {
+    res.status(404).json({ error: 'Not found' })
+    return
+  }
+  res.json(batch)
 })
 
 export default router
