@@ -1,6 +1,6 @@
 ---
 bundle: 1
-status: in-progress
+status: completed
 ---
 
 # Progress: Bundle 1 — Foundation
@@ -15,8 +15,8 @@ status: in-progress
 
 | Step | Status | Commit | Notes |
 |------|--------|--------|-------|
-| STEP-1 | completed | pending | migration manually applied; shadow DB has no baseline |
-| STEP-2 | in-progress | — | — |
+| STEP-1 | completed | 244fd6a | migration manually applied; shadow DB has no baseline |
+| STEP-2 | completed | pending | — |
 
 ## Session Log
 
