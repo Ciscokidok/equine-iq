@@ -20,6 +20,8 @@ import foalsRouter from './routes/foals'
 import heatCyclesRouter from './routes/heatCycles'
 import billingRouter from './routes/billing'
 import settingsRouter from './routes/settings'
+import importRouter from './routes/import'
+import platformProvidersRouter from './routes/admin/platformProviders'
 
 const app = express()
 
@@ -54,6 +56,8 @@ app.use('/api/admin/cron', cronRouter)
 app.use('/api/admin/vetting', vettingRouter)
 app.use('/api/admin/bidders', biddersRouter)
 app.use('/api/admin/adapters', adaptersRouter)
+app.use('/api/import', importRouter)
+app.use('/api/admin/platform-providers', platformProvidersRouter)
 
 httpServer.listen(PORT, () => console.log(`EquineIQ API running on :${PORT}`))
 
