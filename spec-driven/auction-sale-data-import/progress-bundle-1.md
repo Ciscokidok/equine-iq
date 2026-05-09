@@ -1,11 +1,26 @@
 ---
 bundle: 1
-status: pending
+status: in-progress
 ---
 
 # Progress: Bundle 1 — Foundation
 
-| STEP | Title | Status |
-|------|-------|--------|
-| STEP-1 | Extend Prisma schema — 4 models + 3 enums | pending |
-| STEP-2 | Install multer + csv-parse; register routes | pending |
+## Current State
+- Stage: skeleton
+- Last completed: STEP-1
+- Next up: STEP-2 — Install multer + csv-parse; register routes
+- Blockers: none
+
+## Step Status
+
+| Step | Status | Commit | Notes |
+|------|--------|--------|-------|
+| STEP-1 | completed | pending | migration manually applied; shadow DB has no baseline |
+| STEP-2 | in-progress | — | — |
+
+## Session Log
+
+### 2026-05-09 — Bundle 1 execution
+- Completed: STEP-1 — schema + migration
+- Decisions: used prisma db execute + migrate resolve (shadow DB lacked baseline migration)
+- Next: STEP-2: multer/csv-parse install + route stubs
