@@ -16,10 +16,10 @@ function daysAgo(date: string) {
   return d === 0 ? 'today' : `${d}d ago`
 }
 
-function OwnerTag({ user }: { user: { email: string; name?: string | null } }) {
+function OwnerTag({ user }: { user: { email: string; farmName?: string | null } }) {
   return (
     <p className="text-xs text-stone-400 truncate" title={user.email}>
-      {user.name ?? user.email}
+      {user.farmName ?? user.email}
     </p>
   )
 }
