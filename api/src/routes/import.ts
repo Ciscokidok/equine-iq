@@ -6,6 +6,8 @@ import { requireAuth, getUserId } from '../middleware/auth'
 import { parseCSV, applyMapping, validateRows } from '../lib/csvParser'
 import { getPreset } from '../lib/columnMappingPresets'
 import { executeImport } from '../lib/importEngine'
+import { decrypt } from '../lib/encryption'
+import { getAdapter } from '../lib/dataProviders/registry'
 
 const router = Router()
 
@@ -175,6 +177,98 @@ router.get('/history/:batchId', requireAuth, async (req: Request, res: Response)
     return
   }
   res.json(batch)
+})
+
+// GET /api/import/providers
+router.get('/providers', requireAuth, async (req: Request, res: Response) => {
+  const userId = getUserId(req)
+  const userConfigs = await prisma.userProviderConfig.findMany({ where: { userId } })
+  const tjcis = await prisma.platformProviderConfig.findUnique({ where: { provider: 'tjcis' } })
+
+  const providers = [
+    ...userConfigs.map((c) => ({
+      provider: c.provider,
+      configured: true,
+      testStatus: c.testStatus,
+      platformManaged: false,
+    })),
+    ...(tjcis?.active
+      ? [{ provider: 'tjcis', configured: true, testStatus: null, platformManaged: true }]
+      : []),
+  ]
+  res.json({ providers })
+})
+
+// GET /api/import/providers/:provider/search
+router.get('/providers/:provider/search', requireAuth, async (req: Request, res: Response) => {
+  const { provider } = req.params
+  const q = req.query.q as string
+  if (!q || q.length < 2) {
+    res.status(400).json({ error: 'q must be at least 2 characters' })
+    return
+  }
+  const userId = getUserId(req)
+
+  let credential: string
+  if (provider === 'tjcis') {
+    const platform = await prisma.platformProviderConfig.findUnique({ where: { provider: 'tjcis' } })
+    if (!platform?.active) {
+      res.status(403).json({ error: 'Equineline access is not available — contact support' })
+      return
+    }
+    credential = decrypt(platform.encryptedCredential)
+  } else {
+    const config = await prisma.userProviderConfig.findUnique({
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      where: { userId_provider: { userId, provider: provider as any } },
+    })
+    if (!config) {
+      res.status(403).json({ error: `Connect ${provider} in Settings → Data Sources` })
+      return
+    }
+    credential = decrypt(config.encryptedCredential)
+  }
+
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const adapter = getAdapter(provider as any, credential)
+    const results = await adapter.search(q)
+    res.json({ results })
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e)
+    res.status(502).json({ error: `${provider} returned an error: ${msg}` })
+  }
+})
+
+// POST /api/import/providers/:provider/fetch
+const fetchSchema = z.object({ providerRef: z.string().min(1) })
+
+router.post('/providers/:provider/fetch', requireAuth, async (req: Request, res: Response) => {
+  const { provider } = req.params
+  const body = fetchSchema.safeParse(req.body)
+  if (!body.success) {
+    res.status(400).json({ error: 'providerRef is required' })
+    return
+  }
+  const userId = getUserId(req)
+  const config = await prisma.userProviderConfig.findUnique({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    where: { userId_provider: { userId, provider: provider as any } },
+  })
+  if (!config) {
+    res.status(403).json({ error: `Connect ${provider} in Settings → Data Sources` })
+    return
+  }
+  try {
+    const credential = decrypt(config.encryptedCredential)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const adapter = getAdapter(provider as any, credential)
+    const sales = await adapter.fetchSaleHistory(body.data.providerRef)
+    res.json({ rows: sales })
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e)
+    res.status(502).json({ error: `${provider} returned an error: ${msg}` })
+  }
 })
 
 export default router
