@@ -9,6 +9,7 @@ const NAV = [
   { to: '/stallions', label: 'Stallion Catalog' },
   { to: '/foals', label: 'Foal Tracker' },
   { to: '/auctions', label: 'Auctions' },
+  { to: '/import', label: 'Import' },
 ]
 
 export default function Layout({ children }: { children: React.ReactNode }) {
@@ -37,7 +38,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 key={to}
                 to={to}
                 className={`px-3 py-1.5 rounded text-sm transition-colors ${
-                  pathname === to
+                  (to === '/' ? pathname === '/' : pathname.startsWith(to))
                     ? 'bg-white/20 text-white'
                     : 'text-brand-200 hover:text-white hover:bg-white/10'
                 }`}
