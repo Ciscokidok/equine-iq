@@ -9,3 +9,4 @@ prisma/dev.db-journal
 
 # Spec-driven workflow session files (ephemeral)
 spec-driven/.sessions/
+.worktrees/
