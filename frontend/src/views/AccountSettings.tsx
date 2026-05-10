@@ -1,8 +1,10 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { getOpenAIKey, saveOpenAIKey, deleteOpenAIKey } from '@/api/settings'
 import { createPortal } from '@/api/billing'
+import client from '@/api/client'
+import type { ImportProvider } from '@/api/import'
 
 export default function AccountSettings() {
   const [params] = useSearchParams()
@@ -14,6 +16,40 @@ export default function AccountSettings() {
   const [keyError, setKeyError] = useState('')
   const [keySuccess, setKeySuccess] = useState('')
   const [portalLoading, setPortalLoading] = useState(false)
+
+  const [providers, setProviders] = useState<ImportProvider[]>([])
+  const [providerInputs, setProviderInputs] = useState<Record<string, string>>({})
+  const [providerTestResults, setProviderTestResults] = useState<Record<string, string>>({})
+
+  useEffect(() => {
+    client.get('/api/settings/providers').then((r) => setProviders(r.data.providers)).catch(() => {})
+  }, [])
+
+  const USER_PROVIDERS = ['sporthorse_data', 'equibase'] as const
+
+  async function handleProviderSave(provider: string) {
+    const credential = providerInputs[provider]
+    if (!credential) return
+    await client.post(`/api/settings/providers/${provider}`, { credential })
+    const r = await client.get('/api/settings/providers')
+    setProviders(r.data.providers)
+    setProviderInputs((p) => ({ ...p, [provider]: '' }))
+  }
+
+  async function handleProviderTest(provider: string) {
+    try {
+      const r = await client.post(`/api/settings/providers/${provider}/test`)
+      setProviderTestResults((p) => ({ ...p, [provider]: r.data.ok ? 'Connected ✓' : `Failed: ${r.data.message}` }))
+    } catch {
+      setProviderTestResults((p) => ({ ...p, [provider]: 'Test failed' }))
+    }
+  }
+
+  async function handleProviderRemove(provider: string) {
+    await client.delete(`/api/settings/providers/${provider}`)
+    const r = await client.get('/api/settings/providers')
+    setProviders(r.data.providers)
+  }
 
   const { data, isLoading } = useQuery({
     queryKey: ['openai-key'],
@@ -129,6 +165,63 @@ export default function AccountSettings() {
             </form>
           </>
         )}
+      </div>
+
+      {/* Data Sources */}
+      <div className="bg-white border border-stone-200 rounded-lg p-6 space-y-4">
+        <div>
+          <h2 className="font-semibold text-stone-900">Data Sources</h2>
+          <p className="text-xs text-stone-500 mt-1">Connect external data providers to import horse sale data.</p>
+        </div>
+        {USER_PROVIDERS.map((provider) => {
+          const saved = providers.find((p) => p.provider === provider && !p.platformManaged)
+          const displayName = provider === 'sporthorse_data' ? 'SporthorseData' : 'Equibase'
+          return (
+            <div key={provider} className="border border-stone-100 rounded-lg p-4 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="font-medium text-stone-800 text-sm">{displayName}</span>
+                <span className={`text-xs px-2 py-0.5 rounded-full ${saved ? 'bg-green-100 text-green-700' : 'bg-stone-100 text-stone-500'}`}>
+                  {saved ? 'Connected ✓' : 'Not configured'}
+                </span>
+              </div>
+              {saved && (
+                <p className="font-mono text-xs text-stone-500">{saved.maskedCredential}</p>
+              )}
+              <div className="flex gap-2">
+                <input
+                  type="password"
+                  value={providerInputs[provider] ?? ''}
+                  onChange={(e) => setProviderInputs((p) => ({ ...p, [provider]: e.target.value }))}
+                  placeholder="API key or token"
+                  className="flex-1 border border-stone-200 rounded px-2 py-1 text-xs font-mono"
+                />
+                <button onClick={() => handleProviderSave(provider)} disabled={!providerInputs[provider]} className="text-xs bg-brand-700 text-white px-3 py-1 rounded disabled:opacity-40">Save</button>
+                {saved && <button onClick={() => handleProviderTest(provider)} className="text-xs border border-stone-200 px-3 py-1 rounded">Test</button>}
+                {saved && <button onClick={() => handleProviderRemove(provider)} className="text-xs text-red-500 hover:text-red-700">Remove</button>}
+              </div>
+              {providerTestResults[provider] && (
+                <p className={`text-xs ${providerTestResults[provider].startsWith('Connected') ? 'text-green-600' : 'text-red-500'}`}>
+                  {providerTestResults[provider]}
+                </p>
+              )}
+            </div>
+          )
+        })}
+        {/* TJCIS / Equineline — platform-managed, read-only */}
+        {(() => {
+          const tjcis = providers.find((p) => p.provider === 'tjcis')
+          return (
+            <div className="border border-stone-100 rounded-lg p-4">
+              <div className="flex items-center justify-between">
+                <span className="font-medium text-stone-800 text-sm">Equineline (Platform)</span>
+                <span className={`text-xs px-2 py-0.5 rounded-full ${tjcis?.active ? 'bg-green-100 text-green-700' : 'bg-stone-100 text-stone-500'}`}>
+                  {tjcis?.active ? 'Connected — Platform' : 'Pending partnership agreement'}
+                </span>
+              </div>
+              <p className="text-xs text-stone-400 mt-1">Managed by EquineIQ — no action required.</p>
+            </div>
+          )
+        })()}
       </div>
 
       {/* Subscription */}
