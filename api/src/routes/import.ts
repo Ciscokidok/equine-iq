@@ -301,10 +301,11 @@ router.post('/link-pedigree', requireAuth, async (req: Request, res: Response) =
     return
   }
 
-  const existingPedigree = (horse.pedigree as Record<string, unknown>) ?? {}
+  const existingPedigree = (horse.pedigree ?? {}) as Record<string, string>
   const updated = await prisma.horse.update({
     where: { id: horseId },
-    data: { pedigree: { ...existingPedigree, [`${field}Id`]: targetHorseId } },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    data: { pedigree: { ...existingPedigree, [`${field}Id`]: targetHorseId } as any },
   })
   res.json({ ok: true, horseId: updated.id, field, linkedTo: targetHorseId })
 })
