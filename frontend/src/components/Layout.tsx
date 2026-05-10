@@ -2,6 +2,20 @@ import { useState, useEffect } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { getOpenAIKey } from '@/api/settings'
 
+function getTokenRole(): string | null {
+  try {
+    const token = localStorage.getItem('auth_token')
+    if (!token) return null
+    return JSON.parse(atob(token.split('.')[1]))?.role ?? null
+  } catch { return null }
+}
+
+const ADMIN_NAV = [
+  { to: '/admin/foal-pipeline', label: 'Foal Pipeline' },
+  { to: '/admin/vetting', label: 'Vetting Queue' },
+  { to: '/admin/bidders', label: 'Bidder Approval' },
+]
+
 const NAV = [
   { to: '/', label: 'Dashboard' },
   { to: '/advisor', label: 'Mating Advisor' },
@@ -17,6 +31,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const { pathname } = useLocation()
   const navigate = useNavigate()
   const [missingKey, setMissingKey] = useState(false)
+  const isAdmin = getTokenRole() === 'admin'
 
   useEffect(() => {
     getOpenAIKey().then(d => setMissingKey(!d.hasKey)).catch(() => {})
@@ -68,6 +83,23 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           </button>
         </div>
       </header>
+
+      {isAdmin && (
+        <div className="bg-stone-800 text-stone-200 px-6 py-1 flex gap-1 text-xs">
+          <span className="text-stone-500 mr-2 font-medium">Admin:</span>
+          {ADMIN_NAV.map(({ to, label }) => (
+            <Link
+              key={to}
+              to={to}
+              className={`px-2 py-0.5 rounded transition-colors ${
+                pathname.startsWith(to) ? 'bg-white/20 text-white' : 'hover:text-white hover:bg-white/10'
+              }`}
+            >
+              {label}
+            </Link>
+          ))}
+        </div>
+      )}
 
       {missingKey && pathname !== '/settings' && (
         <div className="bg-amber-50 border-b border-amber-200 px-4 py-2 text-center text-xs text-amber-800">
