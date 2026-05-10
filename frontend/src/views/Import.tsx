@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import {
-  uploadCSV, previewImport, executeImport, getProviders, searchProvider, getPresets,
-  type UploadResult, type PreviewResult, type ExecuteSummary, type ImportProvider,
+  uploadCSV, previewImport, executeImport, getProviders, searchProvider, getPresets, linkPedigree,
+  type UploadResult, type PreviewResult, type ExecuteSummary, type ImportProvider, type PedigreeSuggestion,
 } from '@/api/import'
 
 type Step = 'source' | 'configure' | 'preview'
@@ -25,6 +25,8 @@ export default function Import() {
   const [previewResult, setPreviewResult] = useState<PreviewResult | null>(null)
   const [ownership, setOwnership] = useState<'personal' | 'shared'>('personal')
   const [summary, setSummary] = useState<ExecuteSummary | null>(null)
+  const [pedigreeSuggestions, setPedigreeSuggestions] = useState<PedigreeSuggestion[]>([])
+  const [dismissedSuggestions, setDismissedSuggestions] = useState<Set<string>>(new Set())
   const [uploading, setUploading] = useState(false)
   const [executing, setExecuting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -73,6 +75,7 @@ export default function Import() {
       const rows = uploadResult ? uploadResult.rawRows : apiRows
       const result = await executeImport({ mappingConfig, rows, ownership })
       setSummary(result)
+      setPedigreeSuggestions(result.pedigreeSuggestions ?? [])
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Import failed')
     } finally {
@@ -101,21 +104,69 @@ export default function Import() {
     setMappingConfig({})
     setPreviewResult(null)
     setSummary(null)
+    setPedigreeSuggestions([])
+    setDismissedSuggestions(new Set())
     setError(null)
     setApiRows([])
     setSelectedPreset('')
   }
 
+  const handleLinkPedigree = async (suggestion: PedigreeSuggestion) => {
+    try {
+      await linkPedigree({ horseId: suggestion.importedHorseId, field: suggestion.field, targetHorseId: suggestion.matchedHorseId })
+      setDismissedSuggestions((prev) => new Set([...prev, `${suggestion.importedHorseId}:${suggestion.field}`]))
+    } catch {
+      // silently fail — suggestion stays visible
+    }
+  }
+
   if (summary) {
+    const pendingSuggestions = pedigreeSuggestions.filter(
+      (s) => !dismissedSuggestions.has(`${s.importedHorseId}:${s.field}`)
+    )
     return (
-      <div className="max-w-xl mx-auto mt-12 p-8 bg-stone-900 rounded-xl">
-        <h2 className="text-xl font-semibold text-white mb-4">Import Complete</h2>
-        <div className="space-y-2 text-stone-300">
-          <p>Created: <span className="text-green-400 font-bold">{summary.createdCount}</span></p>
-          <p>Matched: <span className="text-yellow-400 font-bold">{summary.matchedCount}</span></p>
-          <p>Errors: <span className="text-red-400 font-bold">{summary.errorCount}</span></p>
+      <div className="max-w-xl mx-auto mt-12 p-8 bg-stone-900 rounded-xl space-y-6">
+        <div>
+          <h2 className="text-xl font-semibold text-white mb-4">Import Complete</h2>
+          <div className="space-y-2 text-stone-300">
+            <p>Created: <span className="text-green-400 font-bold">{summary.createdCount}</span></p>
+            <p>Matched: <span className="text-yellow-400 font-bold">{summary.matchedCount}</span></p>
+            <p>Errors: <span className="text-red-400 font-bold">{summary.errorCount}</span></p>
+          </div>
         </div>
-        <div className="mt-6 flex gap-3">
+
+        {pendingSuggestions.length > 0 && (
+          <div>
+            <h3 className="text-sm font-semibold text-stone-300 mb-2">Pedigree Suggestions</h3>
+            <p className="text-xs text-stone-500 mb-3">We found existing horses that may match the sire/dam fields in your import. Link them to build the pedigree graph.</p>
+            <div className="space-y-2">
+              {pendingSuggestions.map((s) => (
+                <div key={`${s.importedHorseId}:${s.field}`} className="flex items-center justify-between bg-stone-800 rounded-lg p-3 text-xs">
+                  <div>
+                    <span className="text-stone-400 uppercase tracking-wide mr-2">{s.field}</span>
+                    <span className="text-stone-200 font-medium">{s.matchedHorseName}</span>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handleLinkPedigree(s)}
+                      className="px-2 py-1 bg-brand-700 text-white rounded"
+                    >
+                      Link
+                    </button>
+                    <button
+                      onClick={() => setDismissedSuggestions((prev) => new Set([...prev, `${s.importedHorseId}:${s.field}`]))}
+                      className="px-2 py-1 bg-stone-600 text-stone-300 rounded"
+                    >
+                      Dismiss
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className="flex gap-3">
           <button onClick={reset} className="px-4 py-2 bg-brand-700 text-white rounded-lg">Import Another</button>
           <Link to="/import/history" className="px-4 py-2 bg-stone-700 text-white rounded-lg">View History</Link>
         </div>

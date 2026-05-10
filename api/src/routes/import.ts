@@ -146,7 +146,7 @@ router.post('/execute', requireAuth, async (req: Request, res: Response) => {
         errorLog: result.errorLog,
       },
     })
-    res.json(updated)
+    res.json({ ...updated, pedigreeSuggestions: result.pedigreeSuggestions })
   } catch (e: unknown) {
     await prisma.importBatch.update({
       where: { id: batch.id },
