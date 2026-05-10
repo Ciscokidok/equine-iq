@@ -132,6 +132,45 @@ export const PRESETS: Record<string, ColumnMappingPreset> = {
       registrationNumber: 'Registration Number',
     },
   },
+  // NOTE: verify against actual AQHA export sample
+  aqha: {
+    name: 'aqha',
+    displayName: 'AQHA Sales',
+    defaultDiscipline: 'quarter_horse',
+    columns: {
+      horseName: 'Horse Name',
+      sex: 'Sex',
+      breed: 'Breed',
+      sire: 'Sire',
+      dam: 'Dam',
+      dateOfBirth: 'Foaling Date',
+      hipNumber: 'Hip Number',
+      saleDate: 'Sale Date',
+      hammerPrice: 'Sale Price',
+      buyerName: 'Buyer',
+      registrationNumber: 'AQHA Number',
+    },
+  },
+  // NOTE: verify against actual KWPN export sample
+  kwpn: {
+    name: 'kwpn',
+    displayName: 'KWPN / Warmblood',
+    defaultDiscipline: 'warmblood',
+    columns: {
+      horseName: 'Name',
+      sex: 'Gender',
+      breed: 'Breed',
+      sire: 'Sire',
+      dam: 'Dam',
+      damsire: 'Damsire',
+      dateOfBirth: 'Date of Birth',
+      hipNumber: 'Catalogue No.',
+      saleDate: 'Sale Date',
+      hammerPrice: 'Hammer Price',
+      buyerName: 'Buyer',
+      registrationNumber: 'KWPN Number',
+    },
+  },
 }
 
 export function getPreset(name: string): ColumnMappingPreset | null {

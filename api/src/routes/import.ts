@@ -146,7 +146,7 @@ router.post('/execute', requireAuth, async (req: Request, res: Response) => {
         errorLog: result.errorLog,
       },
     })
-    res.json(updated)
+    res.json({ ...updated, pedigreeSuggestions: result.pedigreeSuggestions })
   } catch (e: unknown) {
     await prisma.importBatch.update({
       where: { id: batch.id },
@@ -269,6 +269,44 @@ router.post('/providers/:provider/fetch', requireAuth, async (req: Request, res:
     const msg = e instanceof Error ? e.message : String(e)
     res.status(502).json({ error: `${provider} returned an error: ${msg}` })
   }
+})
+
+const linkPedigreeSchema = z.object({
+  horseId: z.string(),
+  field: z.enum(['sire', 'dam']),
+  targetHorseId: z.string(),
+})
+
+// POST /api/import/link-pedigree
+router.post('/link-pedigree', requireAuth, async (req: Request, res: Response) => {
+  const body = linkPedigreeSchema.safeParse(req.body)
+  if (!body.success) {
+    res.status(400).json({ error: 'Invalid request body', details: body.error.issues })
+    return
+  }
+  const { horseId, field, targetHorseId } = body.data
+  const userId = getUserId(req)
+
+  const horse = await prisma.horse.findFirst({
+    where: { id: horseId, OR: [{ createdByUser: userId }, { createdByUser: null }] },
+  })
+  if (!horse) {
+    res.status(404).json({ error: 'Horse not found' })
+    return
+  }
+
+  const target = await prisma.horse.findUnique({ where: { id: targetHorseId } })
+  if (!target) {
+    res.status(404).json({ error: 'Target horse not found' })
+    return
+  }
+
+  const existingPedigree = (horse.pedigree as Record<string, unknown>) ?? {}
+  const updated = await prisma.horse.update({
+    where: { id: horseId },
+    data: { pedigree: { ...existingPedigree, [`${field}Id`]: targetHorseId } },
+  })
+  res.json({ ok: true, horseId: updated.id, field, linkedTo: targetHorseId })
 })
 
 export default router
