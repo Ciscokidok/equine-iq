@@ -23,6 +23,8 @@ import SellerDashboard from '@/views/SellerDashboard'
 import BuyerDashboard from '@/views/BuyerDashboard'
 import VettingQueue from '@/views/admin/VettingQueue'
 import BidderApproval from '@/views/admin/BidderApproval'
+import Import from '@/views/Import'
+import ImportHistory from '@/views/ImportHistory'
 
 function useAuth() {
   const [token, setToken] = useState(() => localStorage.getItem('auth_token'))
@@ -99,6 +101,9 @@ export default function App() {
                 <Route path="/my-bids" element={<BuyerDashboard />} />
                 <Route path="/admin/vetting" element={<VettingQueue />} />
                 <Route path="/admin/bidders" element={<BidderApproval />} />
+                <Route path="/import" element={<Import />} />
+                <Route path="/import/history" element={<ImportHistory />} />
+                <Route path="/import/history/:id" element={<ImportHistory />} />
               </Routes>
             </Layout>
           </ProtectedRoute>
