@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useNavigate } from 'react-router-dom'
 import { getMares } from '@/api/mares'
 import {
   getFoals,
@@ -9,6 +10,7 @@ import {
 } from '@/api/foals'
 import type { Foal, CreateFoalData, CreateFoalResultData } from '@/api/foals'
 import { useAuctionSales, useAddAuctionSale } from '@/api/auctionSales'
+import { promoteToHorse } from '@/api/studBookings'
 import { toast } from 'sonner'
 
 const SALE_TYPES = ['weanling', 'yearling', 'two_year_old_in_training', 'mixed_age'] as const
@@ -125,6 +127,7 @@ function AuctionSalesSection({ foalId }: { foalId: string }) {
 
 function FoalCard({ foal }: { foal: Foal }) {
   const qc = useQueryClient()
+  const navigate = useNavigate()
   const [expanded, setExpanded] = useState(false)
   const [showResultForm, setShowResultForm] = useState(false)
   const [resultData, setResultData] = useState<CreateFoalResultData>({
@@ -138,6 +141,14 @@ function FoalCard({ foal }: { foal: Foal }) {
     mutationFn: () => deleteFoal(foal.id),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['foals'] }); toast.success('Foal deleted') },
     onError: () => toast.error('Delete failed'),
+  })
+
+  const promoteMutation = useMutation({
+    mutationFn: () => promoteToHorse(foal.id),
+    onSuccess: (result) => {
+      navigate(`/auctions/create?horseId=${result.horseId}`)
+    },
+    onError: (err: any) => toast.error(err?.response?.data?.error ?? 'Could not promote foal'),
   })
 
   const addResultMutation = useMutation({
@@ -175,6 +186,14 @@ function FoalCard({ foal }: { foal: Foal }) {
             className="text-xs text-stone-400 hover:text-stone-700"
           >
             {expanded ? 'Hide' : `Results (${foal.results.length})`}
+          </button>
+          <button
+            onClick={() => promoteMutation.mutate()}
+            disabled={promoteMutation.isPending || !foal.name || !foal.sex}
+            title={!foal.name || !foal.sex ? 'Set foal name and sex first' : 'Promote to horse and list in auction'}
+            className="text-xs text-brand-700 hover:text-brand-900 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            List in Auction
           </button>
           <button
             onClick={() => deleteMutation.mutate()}

@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { useSearchParams } from 'react-router-dom'
 import { getMares } from '@/api/mares'
 import {
   useCreateListing,
@@ -39,7 +40,13 @@ const RESERVE_BEHAVIORS = [
 ] as const
 
 export default function CreateListing() {
+  const [searchParams] = useSearchParams()
   const [selectedHorseId, setSelectedHorseId] = useState('')
+
+  useEffect(() => {
+    const preselect = searchParams.get('horseId')
+    if (preselect) setSelectedHorseId(preselect)
+  }, [])
   const [listing, setListing] = useState<AuctionListing | null>(null)
   const [docs, setDocs] = useState<Record<string, DocUploadState>>({
     coggins_test: emptyDoc(),

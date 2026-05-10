@@ -25,6 +25,7 @@ import VettingQueue from '@/views/admin/VettingQueue'
 import BidderApproval from '@/views/admin/BidderApproval'
 import Import from '@/views/Import'
 import ImportHistory from '@/views/ImportHistory'
+import StudBookings from '@/views/StudBookings'
 
 function useAuth() {
   const [token, setToken] = useState(() => localStorage.getItem('auth_token'))
@@ -99,6 +100,7 @@ export default function App() {
                 <Route path="/foals" element={<FoalTracker />} />
                 <Route path="/my-listings" element={<SellerDashboard />} />
                 <Route path="/my-bids" element={<BuyerDashboard />} />
+                <Route path="/my-bookings" element={<StudBookings />} />
                 <Route path="/admin/vetting" element={<VettingQueue />} />
                 <Route path="/admin/bidders" element={<BidderApproval />} />
                 <Route path="/import" element={<Import />} />

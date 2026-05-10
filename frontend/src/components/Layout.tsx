@@ -9,6 +9,7 @@ const NAV = [
   { to: '/stallions', label: 'Stallion Catalog' },
   { to: '/foals', label: 'Foal Tracker' },
   { to: '/auctions', label: 'Auctions' },
+  { to: '/my-bookings', label: 'Bookings' },
   { to: '/import', label: 'Import' },
 ]
 

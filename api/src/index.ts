@@ -22,6 +22,7 @@ import billingRouter from './routes/billing'
 import settingsRouter from './routes/settings'
 import importRouter from './routes/import'
 import platformProvidersRouter from './routes/admin/platformProviders'
+import studBookingsRouter from './routes/studBookings'
 
 const app = express()
 
@@ -41,6 +42,7 @@ app.use('/api/stallions', stallionsRouter)
 app.use('/api/pairings', pairingsRouter)
 app.use('/api/horses', horsesRouter)
 app.use('/api/foals', foalsRouter)
+app.use('/api/stud-bookings', studBookingsRouter)
 app.use('/api/billing', billingRouter)
 app.use('/api/settings', settingsRouter)
 

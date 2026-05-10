@@ -125,6 +125,18 @@ router.post('/webhook', async (req: Request, res: Response) => {
     switch (event.type) {
       case 'checkout.session.completed': {
         const session = event.data.object as Stripe.Checkout.Session
+
+        if (session.metadata?.type === 'stud_fee') {
+          const bookingId = session.metadata.bookingId
+          if (bookingId) {
+            await prisma.studBooking.update({
+              where: { id: bookingId },
+              data: { status: 'confirmed', stripeSessionId: session.id },
+            })
+          }
+          break
+        }
+
         const customerId = session.customer as string
         const email = session.customer_details?.email
         const meta = session.metadata || {}

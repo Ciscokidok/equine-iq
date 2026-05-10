@@ -123,6 +123,7 @@ model User {
   highBidAuctions     Auction[]           @relation("AuctionHighBidder")
   importBatches       ImportBatch[]
   userProviderConfigs UserProviderConfig[]
+  studBookings        StudBooking[]
 }
 
 model Horse {
@@ -149,14 +150,16 @@ model Horse {
   createdAt                   DateTime   @default(now())
   updatedAt                   DateTime   @updatedAt
 
-  ownerMares       User?           @relation("UserMares", fields: [createdByUser], references: [id])
-  marePairings     MatingPairing[] @relation("MarePairings")
-  stallionPairings MatingPairing[] @relation("StallionPairings")
-  foalMares        Foal[]          @relation("FoalMare")
-  foalSires        Foal[]          @relation("FoalSire")
-  heatCycles       HeatCycle[]
-  auctionListings  AuctionListing[]
-  saleRecords      SaleRecord[]
+  ownerMares           User?           @relation("UserMares", fields: [createdByUser], references: [id])
+  marePairings         MatingPairing[] @relation("MarePairings")
+  stallionPairings     MatingPairing[] @relation("StallionPairings")
+  foalMares            Foal[]          @relation("FoalMare")
+  foalSires            Foal[]          @relation("FoalSire")
+  heatCycles           HeatCycle[]
+  auctionListings      AuctionListing[]
+  saleRecords          SaleRecord[]
+  studBookingsMare     StudBooking[]   @relation("StudBookingMare")
+  studBookingsStallion StudBooking[]   @relation("StudBookingStallion")
 
   @@index([sex])
   @@index([discipline])
@@ -197,9 +200,10 @@ model Foal {
   notes      String?
   mareId     String
   stallionId String?
-  pairingId  String?   @unique
-  userId     String
-  createdAt  DateTime  @default(now())
+  pairingId       String?   @unique
+  promotedHorseId String?   @unique
+  userId          String
+  createdAt       DateTime  @default(now())
 
   mare         Horse          @relation("FoalMare", fields: [mareId], references: [id])
   stallion     Horse?         @relation("FoalSire", fields: [stallionId], references: [id])
@@ -415,6 +419,13 @@ enum ImportStatus {
   failed
 }
 
+enum StudBookingStatus {
+  pending_payment
+  confirmed
+  breeding_complete
+  cancelled
+}
+
 model SaleRecord {
   id               String    @id @default(cuid())
   horseId          String
@@ -478,4 +489,24 @@ model PlatformProviderConfig {
   active              Boolean      @default(false)
   testedAt            DateTime?
   createdAt           DateTime     @default(now())
+}
+
+model StudBooking {
+  id              String            @id @default(uuid())
+  userId          String
+  mareId          String
+  stallionId      String
+  feePaidCents    Int
+  stripeSessionId String?           @unique
+  status          StudBookingStatus @default(pending_payment)
+  scheduledDate   DateTime?
+  completedAt     DateTime?
+  notes           String?
+  createdAt       DateTime          @default(now())
+
+  user     User  @relation(fields: [userId], references: [id])
+  mare     Horse @relation("StudBookingMare", fields: [mareId], references: [id])
+  stallion Horse @relation("StudBookingStallion", fields: [stallionId], references: [id])
+
+  @@index([userId])
 }

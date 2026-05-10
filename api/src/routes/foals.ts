@@ -172,4 +172,40 @@ router.post('/:id/results', requireAuth, async (req: Request, res: Response) => 
   res.status(201).json(result)
 })
 
+router.post('/:id/promote', requireAuth, async (req: Request, res: Response) => {
+  const userId = getUserId(req)
+  const foal = await prisma.foal.findFirst({
+    where: { id: req.params.id, userId },
+    include: { mare: true, stallion: true },
+  })
+  if (!foal) { res.status(404).json({ error: 'Not found' }); return }
+
+  if (foal.promotedHorseId) {
+    const horse = await prisma.horse.findUnique({ where: { id: foal.promotedHorseId } })
+    res.json({ horseId: foal.promotedHorseId, horse, alreadyPromoted: true })
+    return
+  }
+
+  if (!foal.name) { res.status(400).json({ error: 'Foal must have a name before promoting to a horse' }); return }
+  if (!foal.sex) { res.status(400).json({ error: 'Foal must have a sex before promoting to a horse' }); return }
+
+  const horse = await prisma.horse.create({
+    data: {
+      name: foal.name,
+      sex: foal.sex,
+      breed: foal.mare.breed ?? '',
+      discipline: foal.mare.discipline ?? 'other',
+      dateOfBirth: foal.foaledAt ?? undefined,
+      color: foal.color ?? undefined,
+      createdByUser: userId,
+      pedigree: foal.stallionId
+        ? ({ sireId: foal.stallionId, damId: foal.mareId } as any)
+        : ({ damId: foal.mareId } as any),
+    },
+  })
+
+  await prisma.foal.update({ where: { id: foal.id }, data: { promotedHorseId: horse.id } })
+  res.json({ horseId: horse.id, horse, alreadyPromoted: false })
+})
+
 export default router

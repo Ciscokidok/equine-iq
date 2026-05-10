@@ -1,13 +1,51 @@
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { getStallion } from '@/api/stallions'
 import GeneticRiskPanel from '@/components/GeneticRiskPanel'
 import { stallionDataQuality } from '@/lib/dataQuality'
 import { useStallionSaleStats } from '@/api/auctionSales'
+import { getMares } from '@/api/mares'
+import { createBooking } from '@/api/studBookings'
+import { toast } from 'sonner'
 
 export default function StallionDetail() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const [showBookingModal, setShowBookingModal] = useState(false)
+  const [bookingMareId, setBookingMareId] = useState('')
+  const [bookingDate, setBookingDate] = useState('')
+  const [bookingNotes, setBookingNotes] = useState('')
+  const [bookingPending, setBookingPending] = useState(false)
+
+  const { data: mares = [] } = useQuery({ queryKey: ['mares'], queryFn: getMares })
+
+  const handleBooking = async () => {
+    if (!bookingMareId || !id) return
+    setBookingPending(true)
+    try {
+      const result = await createBooking({
+        mareId: bookingMareId,
+        stallionId: id,
+        scheduledDate: bookingDate || undefined,
+        notes: bookingNotes || undefined,
+      })
+      if (result.checkoutUrl) {
+        window.location.href = result.checkoutUrl
+      } else {
+        toast.success('Breeding booked successfully')
+        setShowBookingModal(false)
+        setBookingMareId('')
+        setBookingDate('')
+        setBookingNotes('')
+        navigate('/my-bookings')
+      }
+    } catch {
+      toast.error('Booking failed — please try again')
+    } finally {
+      setBookingPending(false)
+    }
+  }
 
   const { data: stallion, isLoading, isError } = useQuery({
     queryKey: ['stallion', id],
@@ -58,7 +96,25 @@ export default function StallionDetail() {
         </Link>
       </div>
 
-      {/* Contact actions */}
+      {/* In-app stud fee booking */}
+      {stallion.studFee != null && (
+        <div className="bg-stone-50 border border-stone-200 rounded-lg p-4 flex items-center justify-between">
+          <div>
+            <p className="text-sm font-medium text-stone-800">Stud Fee</p>
+            <p className="text-xl font-bold text-brand-800">
+              {stallion.studFee.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })}
+            </p>
+          </div>
+          <button
+            onClick={() => setShowBookingModal(true)}
+            className="bg-brand-700 text-white px-5 py-2.5 rounded text-sm font-medium hover:bg-brand-900"
+          >
+            Book Breeding
+          </button>
+        </div>
+      )}
+
+      {/* External booking / inquiry */}
       {(stallion.studBookingUrl || stallion.studLocation) && (
         <div className="flex flex-wrap gap-3">
           {stallion.studBookingUrl && (
@@ -66,9 +122,9 @@ export default function StallionDetail() {
               href={stallion.studBookingUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="bg-brand-700 text-white px-4 py-2 rounded text-sm font-medium hover:bg-brand-900"
+              className="border border-stone-200 px-4 py-2 rounded text-sm hover:bg-stone-50"
             >
-              Book This Stallion →
+              External Booking Site →
             </a>
           )}
           {stallion.studLocation && (
@@ -79,6 +135,67 @@ export default function StallionDetail() {
               Send Inquiry Email
             </a>
           )}
+        </div>
+      )}
+
+      {/* Booking modal */}
+      {showBookingModal && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6 space-y-4">
+            <h2 className="text-lg font-semibold">Book Breeding — {stallion.name}</h2>
+            <p className="text-sm text-stone-500">
+              Stud fee:{' '}
+              <span className="font-medium text-stone-800">
+                {(stallion.studFee ?? 0).toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })}
+              </span>
+            </p>
+            <div>
+              <label className="block text-sm font-medium text-stone-700 mb-1">Select Your Mare *</label>
+              <select
+                className="w-full border border-stone-200 rounded px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-stone-400"
+                value={bookingMareId}
+                onChange={(e) => setBookingMareId(e.target.value)}
+              >
+                <option value="">Choose a mare…</option>
+                {mares.map((m: any) => (
+                  <option key={m.id} value={m.id}>{m.name}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-stone-700 mb-1">Preferred Date (optional)</label>
+              <input
+                type="date"
+                className="w-full border border-stone-200 rounded px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-stone-400"
+                value={bookingDate}
+                onChange={(e) => setBookingDate(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-stone-700 mb-1">Notes (optional)</label>
+              <textarea
+                className="w-full border border-stone-200 rounded px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-stone-400"
+                rows={2}
+                value={bookingNotes}
+                onChange={(e) => setBookingNotes(e.target.value)}
+              />
+            </div>
+            <div className="flex gap-2 pt-2">
+              <button
+                onClick={() => { setShowBookingModal(false); setBookingMareId(''); setBookingDate(''); setBookingNotes('') }}
+                className="flex-1 border border-stone-200 px-4 py-2 rounded text-sm hover:bg-stone-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleBooking}
+                disabled={!bookingMareId || bookingPending}
+                className="flex-1 bg-brand-700 text-white px-4 py-2 rounded text-sm font-medium hover:bg-brand-900 disabled:opacity-50"
+              >
+                {bookingPending ? 'Processing…' : 'Pay & Book'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
