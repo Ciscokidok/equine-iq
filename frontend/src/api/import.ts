@@ -35,8 +35,16 @@ export interface ImportBatch {
   createdAt: string
 }
 
+export interface PedigreeSuggestion {
+  importedHorseId: string
+  field: 'sire' | 'dam'
+  matchedHorseId: string
+  matchedHorseName: string
+}
+
 export interface ExecuteSummary extends ImportBatch {
   errorLog: Array<{ rowIndex: number; error: string }>
+  pedigreeSuggestions?: PedigreeSuggestion[]
 }
 
 export interface UploadResult {
@@ -93,3 +101,10 @@ export const searchProvider = (
 
 export const getPresets = (): Promise<string[]> =>
   Promise.resolve(['keeneland', 'fasig_tipton', 'obs', 'saratoga', 'generic'])
+
+export const linkPedigree = (payload: {
+  horseId: string
+  field: 'sire' | 'dam'
+  targetHorseId: string
+}): Promise<{ ok: boolean; horseId: string; field: string; linkedTo: string }> =>
+  client.post('/api/import/link-pedigree', payload).then((r) => r.data)

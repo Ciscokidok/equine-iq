@@ -1,12 +1,19 @@
 import { prisma } from './prisma'
 import type { ValidatedRow } from './csvParser'
 
+export interface PedigreeSuggestion {
+  importedHorseId: string
+  field: 'sire' | 'dam'
+  matchedHorseId: string
+  matchedHorseName: string
+}
+
 export interface ImportResult {
   createdCount: number
   matchedCount: number
   errorCount: number
   errorLog: Array<{ rowIndex: number; error: string }>
-  pedigreeSuggestions: Array<unknown>
+  pedigreeSuggestions: PedigreeSuggestion[]
 }
 
 export async function executeImport(
@@ -20,6 +27,7 @@ export async function executeImport(
   let matchedCount = 0
   let errorCount = 0
   const errorLog: ImportResult['errorLog'] = []
+  const createdHorses: Array<{ id: string; sire?: string; dam?: string }> = []
 
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i]
@@ -67,8 +75,8 @@ export async function executeImport(
         matchedCount++
       } else {
         // Create Horse + SaleRecord atomically
-        await prisma.$transaction(async (tx) => {
-          const horse = await tx.horse.create({
+        const newHorse = await prisma.$transaction(async (tx) => {
+          const h = await tx.horse.create({
             data: {
               name: row.horseName!,
               // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -88,7 +96,7 @@ export async function executeImport(
           })
           await tx.saleRecord.create({
             data: {
-              horseId: horse.id,
+              horseId: h.id,
               importBatchId: batchId,
               saleSource: 'csv',
               saleSessionName: row.saleSessionName ?? null,
@@ -99,7 +107,9 @@ export async function executeImport(
               consignorName: row.consignorName ?? null,
             },
           })
+          return h
         })
+        createdHorses.push({ id: newHorse.id, sire: row.sire, dam: row.dam })
         createdCount++
       }
     } catch (e: unknown) {
@@ -108,7 +118,27 @@ export async function executeImport(
     }
   }
 
-  return { createdCount, matchedCount, errorCount, errorLog, pedigreeSuggestions: [] }
+  const pedigreeSuggestions: PedigreeSuggestion[] = []
+  if (createdHorses.length > 0) {
+    const sireNames = createdHorses.filter((h) => h.sire).map((h) => h.sire!)
+    const damNames = createdHorses.filter((h) => h.dam).map((h) => h.dam!)
+    const allNames = [...new Set([...sireNames, ...damNames])]
+    if (allNames.length > 0) {
+      const matches = await prisma.horse.findMany({ where: { name: { in: allNames } } })
+      for (const created of createdHorses) {
+        if (created.sire) {
+          const match = matches.find((m) => m.name === created.sire)
+          if (match) pedigreeSuggestions.push({ importedHorseId: created.id, field: 'sire', matchedHorseId: match.id, matchedHorseName: match.name })
+        }
+        if (created.dam) {
+          const match = matches.find((m) => m.name === created.dam)
+          if (match) pedigreeSuggestions.push({ importedHorseId: created.id, field: 'dam', matchedHorseId: match.id, matchedHorseName: match.name })
+        }
+      }
+    }
+  }
+
+  return { createdCount, matchedCount, errorCount, errorLog, pedigreeSuggestions }
 }
 
 function normalizePrice(raw: string): number {
