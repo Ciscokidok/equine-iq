@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useAuctionCatalog, type AuctionCatalogFilters } from '@/api/auctions'
 
 const DISCIPLINES = [
@@ -21,6 +21,7 @@ function timeLeft(endsAt: string, startAt: string, status: string): string {
 }
 
 export default function AuctionCatalog() {
+  const navigate = useNavigate()
   const [breed, setBreed] = useState('')
   const [discipline, setDiscipline] = useState('')
   const [status, setStatus] = useState('')
@@ -35,7 +36,29 @@ export default function AuctionCatalog() {
 
   return (
     <div className="space-y-5">
-      <h1 className="text-xl font-bold">Auction Catalog</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-xl font-bold">Auction Catalog</h1>
+        <div className="flex gap-2">
+          <button
+            onClick={() => navigate('/my-bids')}
+            className="text-sm px-3 py-1.5 rounded border border-stone-300 hover:bg-stone-50 transition-colors"
+          >
+            My Bids
+          </button>
+          <button
+            onClick={() => navigate('/my-listings')}
+            className="text-sm px-3 py-1.5 rounded border border-stone-300 hover:bg-stone-50 transition-colors"
+          >
+            My Listings
+          </button>
+          <button
+            onClick={() => navigate('/auctions/create')}
+            className="text-sm px-3 py-1.5 rounded bg-brand-800 text-white hover:bg-brand-700 transition-colors"
+          >
+            List a Horse
+          </button>
+        </div>
+      </div>
 
       <div className="flex flex-wrap gap-3">
         <input

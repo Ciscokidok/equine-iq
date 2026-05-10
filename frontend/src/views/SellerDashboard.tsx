@@ -31,7 +31,7 @@ export default function SellerDashboard() {
     return (
       <p className="text-stone-400">
         No listings yet.{' '}
-        <Link to="/listings/new" className="text-brand-700 underline">
+        <Link to="/auctions/create" className="text-brand-700 underline">
           Create one
         </Link>
         .
