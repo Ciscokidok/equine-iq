@@ -6,7 +6,7 @@ import { requireAdmin } from '../../middleware/admin'
 const router = Router()
 router.use(requireAuth, requireAdmin)
 
-const REQUIRED_DOCS = ['coggins_test', 'vet_certificate', 'registration_papers']
+const REQUIRED_DOCS = ['coggins_test', 'vet_certificate', 'registration_papers', 'bill_of_sale', 'ownership_transfer']
 
 const userSelect = { id: true, email: true, farmName: true }
 

@@ -14,6 +14,8 @@ const REQUIRED_DOCS = [
   { docType: 'coggins_test', label: 'Coggins Test' },
   { docType: 'vet_certificate', label: 'Vet Certificate' },
   { docType: 'registration_papers', label: 'Registration Papers' },
+  { docType: 'bill_of_sale', label: 'Bill of Sale' },
+  { docType: 'ownership_transfer', label: 'Ownership Transfer Certificate' },
 ] as const
 
 const OPTIONAL_DOCS = [

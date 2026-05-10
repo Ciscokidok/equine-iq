@@ -8,7 +8,7 @@ const router = Router()
 
 router.use(requireAuth, requireAdmin)
 
-const REQUIRED_DOC_TYPES = ['coggins_test', 'vet_certificate', 'registration_papers']
+const REQUIRED_DOC_TYPES = ['coggins_test', 'vet_certificate', 'registration_papers', 'bill_of_sale', 'ownership_transfer']
 
 // GET /queue — listings in pending_review with all 3 required docs scanned clean
 router.get('/queue', async (_req: Request, res: Response) => {
