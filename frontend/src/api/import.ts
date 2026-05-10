@@ -6,6 +6,7 @@ export interface ImportProvider {
   testStatus: string | null
   platformManaged?: boolean
   active?: boolean
+  maskedCredential?: string
 }
 
 export interface PreviewRow {
