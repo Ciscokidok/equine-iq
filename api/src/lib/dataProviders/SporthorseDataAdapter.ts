@@ -16,8 +16,8 @@ export class SporthorseDataAdapter implements DataProviderAdapter {
       { headers: { Authorization: `Bearer ${this.credential}` } }
     )
     if (!res.ok) throw new Error(`SporthorseData search failed: ${res.status}`)
-    const data = await res.json()
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const data = await res.json() as any
     return (data.results ?? []).map((r: any) => ({
       name: r.name,
       sire: r.sire,
@@ -34,8 +34,8 @@ export class SporthorseDataAdapter implements DataProviderAdapter {
       { headers: { Authorization: `Bearer ${this.credential}` } }
     )
     if (!res.ok) throw new Error(`SporthorseData fetchSaleHistory failed: ${res.status}`)
-    const data = await res.json()
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const data = await res.json() as any
     return (data.sales ?? []).map((s: any) => ({
       providerRef: s.id,
       saleDate: s.saleDate,
