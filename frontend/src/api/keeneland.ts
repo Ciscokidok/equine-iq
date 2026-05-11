@@ -65,3 +65,6 @@ export const keenelandDryRun = (sinceYear: number): Promise<KeenelandDryRunResul
 
 export const keenelandSync = (sinceYear: number): Promise<KeenelandSyncStarted | KeenelandSyncResult> =>
   client.post('/api/import/keeneland/sync', { sinceYear }).then((r) => r.data)
+
+export const keenelandCleanup = (): Promise<{ fixed: number; batches?: string[] }> =>
+  client.post('/api/import/keeneland/cleanup').then((r) => r.data)

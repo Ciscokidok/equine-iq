@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
-  getKeenelandStatus, keenelandDryRun, keenelandSync,
+  getKeenelandStatus, keenelandDryRun, keenelandSync, keenelandCleanup,
   type KeenelandSaleDetail, type KeenelandDryRunResult, type KeenelandSyncStarted,
 } from '@/api/keeneland'
 
@@ -69,7 +69,12 @@ function KeenelandSyncInner() {
   const { data: status, isLoading: statusLoading, refetch: refetchStatus } = useQuery({
     queryKey: ['keeneland-status'],
     queryFn: getKeenelandStatus,
-    refetchInterval: polling ? 4000 : false,
+    refetchInterval: (query) => {
+      if (polling) return 4000
+      const batches = (query.state.data as typeof status)?.batches ?? []
+      if (batches.some((b) => b.status === 'processing')) return 8000
+      return false
+    },
   })
 
   // Stop polling once we've seen all expected batches land as completed
@@ -99,6 +104,11 @@ function KeenelandSyncInner() {
     ? Math.min(100, Math.round((importedSoFar / (syncInfo.alreadyImported + syncInfo.toImport)) * 100))
     : 0
 
+  const cleanup = useMutation({
+    mutationFn: keenelandCleanup,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['keeneland-status'] }),
+  })
+
   const dryRun = useMutation({
     mutationFn: () => keenelandDryRun(sinceYear),
     onSuccess: (data) => { setPreview(data); setSyncInfo(null) },
@@ -119,7 +129,8 @@ function KeenelandSyncInner() {
     },
   })
 
-  const busy = dryRun.isPending || sync.isPending || polling
+  const busy = dryRun.isPending || sync.isPending || polling || cleanup.isPending
+  const hasStuck = status?.batches.some((b) => b.status === 'processing') ?? false
 
   return (
     <div className="space-y-8">
@@ -227,11 +238,22 @@ function KeenelandSyncInner() {
 
       {/* Import history */}
       <div className="bg-white border border-stone-200 rounded-xl p-5 space-y-3">
-        <h2 className="text-sm font-semibold text-stone-700">
-          Import History
-          {status && <span className="ml-2 text-stone-400 font-normal">({status.count} sales)</span>}
-          {polling && <span className="ml-2 text-amber-500 text-xs font-normal animate-pulse">● live</span>}
-        </h2>
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-stone-700">
+            Import History
+            {status && <span className="ml-2 text-stone-400 font-normal">({status.count} sales)</span>}
+            {polling && <span className="ml-2 text-amber-500 text-xs font-normal animate-pulse">● live</span>}
+          </h2>
+          {hasStuck && !polling && (
+            <button
+              onClick={() => cleanup.mutate()}
+              disabled={busy}
+              className="text-xs px-3 py-1 rounded border border-amber-300 text-amber-700 hover:bg-amber-50 disabled:opacity-40"
+            >
+              {cleanup.isPending ? 'Cleaning…' : 'Fix stuck batches'}
+            </button>
+          )}
+        </div>
         {statusLoading && <p className="text-sm text-stone-400">Loading…</p>}
         {status && status.batches.length === 0 && (
           <p className="text-sm text-stone-400 italic">No Keeneland sales imported yet.</p>

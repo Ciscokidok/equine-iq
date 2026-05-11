@@ -335,12 +335,38 @@ router.post('/link-pedigree', requireAuth, async (req: Request, res: Response) =
 
 // GET /api/import/keeneland/status
 router.get('/keeneland/status', requireAuth, requireAdmin, async (_req: Request, res: Response) => {
-  const batches = await prisma.importBatch.findMany({
+  // Deduplicate: per sale_id keep the most recent batch only
+  const all = await prisma.importBatch.findMany({
     where: { sourceFileName: { startsWith: 'keeneland_' } },
     select: { id: true, sourceFileName: true, status: true, createdCount: true, matchedCount: true, errorCount: true, totalRows: true, createdAt: true },
     orderBy: { createdAt: 'desc' },
   })
+  const seen = new Set<string>()
+  const batches = all.filter((b) => {
+    if (seen.has(b.sourceFileName!)) return false
+    seen.add(b.sourceFileName!)
+    return true
+  })
   res.json({ count: batches.length, batches })
+})
+
+// POST /api/import/keeneland/cleanup — mark stuck processing batches as failed
+router.post('/keeneland/cleanup', requireAuth, requireAdmin, async (_req: Request, res: Response) => {
+  // A batch stuck in processing for >10 min is considered failed
+  const cutoff = new Date(Date.now() - 10 * 60 * 1000)
+  const stuck = await prisma.importBatch.findMany({
+    where: { sourceFileName: { startsWith: 'keeneland_' }, status: 'processing', createdAt: { lt: cutoff } },
+    select: { id: true, sourceFileName: true },
+  })
+  if (stuck.length === 0) {
+    res.json({ fixed: 0 })
+    return
+  }
+  await prisma.importBatch.updateMany({
+    where: { id: { in: stuck.map((b) => b.id) } },
+    data: { status: 'failed' },
+  })
+  res.json({ fixed: stuck.length, batches: stuck.map((b) => b.sourceFileName) })
 })
 
 // POST /api/import/keeneland/sync
@@ -368,23 +394,24 @@ router.post('/keeneland/sync', requireAuth, requireAdmin, async (req: Request, r
     return !isNaN(year) && year >= minYear
   })
 
-  const importedFileNames = new Set(
+  // Skip sales that are completed OR currently processing (avoid duplicate runs)
+  const skipFileNames = new Set(
     (await prisma.importBatch.findMany({
       where: {
         sourceFileName: { in: eligible.map((s) => `keeneland_${s.sale_id}`) },
-        status: 'completed',
+        status: { in: ['completed', 'processing'] },
       },
       select: { sourceFileName: true },
     })).map((b) => b.sourceFileName!)
   )
 
-  const toImport = eligible.filter((s) => !importedFileNames.has(`keeneland_${s.sale_id}`))
+  const toImport = eligible.filter((s) => !skipFileNames.has(`keeneland_${s.sale_id}`))
 
   if (dryRun) {
     res.json({
       dryRun: true,
       eligible: eligible.length,
-      alreadyImported: importedFileNames.size,
+      alreadyImported: skipFileNames.size,
       toImport: toImport.length,
       sales: toImport.map((s) => ({ sale_id: s.sale_id, name: s.sale_name, date: s.begin_date })),
     })
@@ -392,12 +419,12 @@ router.post('/keeneland/sync', requireAuth, requireAdmin, async (req: Request, r
   }
 
   if (toImport.length === 0) {
-    res.json({ eligible: eligible.length, alreadyImported: importedFileNames.size, started: false, imported: 0, errored: 0, details: [] })
+    res.json({ eligible: eligible.length, alreadyImported: skipFileNames.size, started: false, imported: 0, errored: 0, details: [] })
     return
   }
 
   // Return immediately — sync runs in background to avoid Render's 30s HTTP timeout
-  res.json({ started: true, eligible: eligible.length, alreadyImported: importedFileNames.size, toImport: toImport.length })
+  res.json({ started: true, eligible: eligible.length, alreadyImported: skipFileNames.size, toImport: toImport.length })
 
   // Background processing — response already sent
   ;(async () => {
