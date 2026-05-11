@@ -462,6 +462,60 @@ function ConsignorsTab() {
 
 type TabKey = 'stallions' | 'comparables' | 'pinhooking' | 'consignors'
 
+const TAB_HELP: Record<TabKey, { heading: string; body: string; interpret: string }> = {
+  stallions: {
+    heading: 'Stallion ROI — Is the stud fee justified by what his foals actually sell for?',
+    body: 'This tab compares each stallion\'s advertised stud fee against the average hammer price of his progeny at Keeneland. Sale records are pulled from Keeneland\'s public auction results. A stallion must have at least 2 offspring in the sale data to appear.',
+    interpret: 'Undervalued (blue) means his foals sell for more than he charges to breed — a potential bargain. Overvalued (red) means you\'re paying more for breeding rights than the market returns on average. "Above avg" and "Good value" fall in between. Stud fees shown are from the stallion catalog and may not reflect the current season.',
+  },
+  comparables: {
+    heading: 'Sale Comparables — How did this horse price against his sire group?',
+    body: 'Select a sire to see every horse by that sire that sold at Keeneland, alongside the sire\'s group average. Only sires with 2 or more offspring in the sale data are listed. The data comes entirely from Keeneland auction records — no other sales are included.',
+    interpret: '"Well above" (red) means this individual sold significantly higher than a typical foal by that sire — strong demand for this specific horse or mare family. "Far below" (blue) means it sold at a discount to its sire group, which could indicate a buying opportunity if the underlying bloodlines are sound. The sire average shown is the mean hammer price across all offspring of that sire in the database.',
+  },
+  pinhooking: {
+    heading: 'Pinhooking ROI — Who bought cheap and sold high?',
+    body: 'Pinhooking is the practice of buying a young horse (weanling or yearling), developing it, and reselling it at a profit. This tab identifies horses that appear in the Keeneland sale database at least twice, showing the price paid and the price received at resale.',
+    interpret: 'A positive ROI % (green) means the horse sold for more the second time. Negative (red) means the pinhooker lost money. High ROI with a large absolute delta suggests the most successful pinhooking operations. Note that time between sales affects real returns — a 30% gain over 3 years is far less impressive than 30% over 6 months.',
+  },
+  consignors: {
+    heading: 'Consignors — Which consignment operations consistently outperform?',
+    body: 'A consignor is the agent or farm that presents a horse at auction. This tab ranks consignors by how their average sale prices compare to the sire-group benchmarks for the horses they sell. Data comes from Keeneland consignor records. Consignors with fewer than 3 sales are excluded.',
+    interpret: '"Beats sire avg" shows how many of their horses sold above the average for that sire group. A consignor consistently above 100% is presenting well-conditioned horses or selecting strong individuals — their horses tend to out-earn expectations. This can indicate quality of preparation, buyer relationships, or horse selection skill.',
+  },
+}
+
+function HelpPanel({ tabKey }: { tabKey: TabKey }) {
+  const [open, setOpen] = useState(false)
+  const h = TAB_HELP[tabKey]
+  return (
+    <div className="rounded-lg border border-stone-200 bg-stone-50 overflow-hidden">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className="w-full flex items-center justify-between px-4 py-3 text-left text-sm font-medium text-stone-700 hover:bg-stone-100 transition-colors"
+      >
+        <span className="flex items-center gap-2">
+          <span className="text-stone-400">?</span>
+          {h.heading}
+        </span>
+        <span className="text-stone-400 text-xs ml-4 shrink-0">{open ? 'Hide' : 'How to read this'}</span>
+      </button>
+      {open && (
+        <div className="px-4 pb-4 space-y-3 border-t border-stone-200 pt-3">
+          <div>
+            <p className="text-xs font-semibold text-stone-500 uppercase tracking-wide mb-1">Data source</p>
+            <p className="text-sm text-stone-600">{h.body}</p>
+          </div>
+          <div>
+            <p className="text-xs font-semibold text-stone-500 uppercase tracking-wide mb-1">How to interpret</p>
+            <p className="text-sm text-stone-600">{h.interpret}</p>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function Valuation() {
   const [tab, setTab] = useState<TabKey>('stallions')
 
@@ -496,6 +550,8 @@ export default function Valuation() {
           </button>
         ))}
       </div>
+
+      <HelpPanel key={tab} tabKey={tab} />
 
       <div>
         {tab === 'stallions' && <StallionTab />}
