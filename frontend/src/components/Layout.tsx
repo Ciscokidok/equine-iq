@@ -19,11 +19,12 @@ const ADMIN_NAV = [
 
 const NAV = [
   { to: '/', label: 'Dashboard' },
+  { to: '/stud-book', label: 'Stud Book' },
   { to: '/advisor', label: 'Mating Advisor' },
-  { to: '/pairings', label: 'Saved Pairings' },
   { to: '/stallions', label: 'Stallion Catalog' },
   { to: '/valuation', label: 'Valuation' },
   { to: '/foals', label: 'Foal Tracker' },
+  { to: '/pairings', label: 'Pairings' },
   { to: '/auctions', label: 'Auctions' },
   { to: '/my-bookings', label: 'Bookings' },
   { to: '/import', label: 'Import' },

@@ -29,6 +29,7 @@ import Import from '@/views/Import'
 import ImportHistory from '@/views/ImportHistory'
 import StudBookings from '@/views/StudBookings'
 import Valuation from '@/views/Valuation'
+import StudBook from '@/views/StudBook'
 
 function useAuth() {
   const [token, setToken] = useState(() => localStorage.getItem('auth_token'))
@@ -100,6 +101,7 @@ export default function App() {
                 <Route path="/stallions/:id" element={<StallionDetail />} />
                 <Route path="/stallions" element={<StallionCatalog />} />
                 <Route path="/valuation" element={<Valuation />} />
+                <Route path="/stud-book" element={<StudBook />} />
                 <Route path="/horses/:id/pedigree" element={<PedigreeView />} />
                 <Route path="/foals" element={<FoalTracker />} />
                 <Route path="/my-listings" element={<SellerDashboard />} />
