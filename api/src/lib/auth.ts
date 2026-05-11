@@ -22,6 +22,7 @@ export interface TokenPayload {
   sub: string
   email: string
   plan: string
+  role?: string
 }
 
 export function createToken(payload: TokenPayload): string {

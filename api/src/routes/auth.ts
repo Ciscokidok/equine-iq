@@ -34,7 +34,7 @@ router.post('/register', async (req: Request, res: Response) => {
     },
   })
 
-  const token = createToken({ sub: user.id, email: user.email, plan: user.plan })
+  const token = createToken({ sub: user.id, email: user.email, plan: user.plan, role: user.role })
   res.status(201).json({ token, user: { id: user.id, email: user.email, farmName: user.farmName, plan: user.plan } })
 })
 
@@ -49,7 +49,7 @@ router.post('/login', async (req: Request, res: Response) => {
     return
   }
 
-  const token = createToken({ sub: user.id, email: user.email, plan: user.plan })
+  const token = createToken({ sub: user.id, email: user.email, plan: user.plan, role: user.role })
   res.json({ token, user: { id: user.id, email: user.email, farmName: user.farmName, plan: user.plan } })
 })
 
@@ -88,7 +88,7 @@ router.post('/claim', async (req: Request, res: Response) => {
     },
   })
 
-  const authToken = createToken({ sub: updated.id, email: updated.email, plan: updated.plan })
+  const authToken = createToken({ sub: updated.id, email: updated.email, plan: updated.plan, role: updated.role })
   res.json({ token: authToken, user: { id: updated.id, email: updated.email, farmName: updated.farmName, plan: updated.plan } })
 })
 
