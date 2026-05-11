@@ -1,8 +1,8 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   getKeenelandStatus, keenelandDryRun, keenelandSync,
-  type KeenelandSaleDetail, type KeenelandDryRunResult, type KeenelandSyncResult,
+  type KeenelandSaleDetail, type KeenelandDryRunResult, type KeenelandSyncStarted,
 } from '@/api/keeneland'
 
 function getTokenRole(): string | null {
@@ -30,13 +30,8 @@ function StatusDot({ status }: { status: string }) {
 }
 
 function DetailRow({ d }: { d: KeenelandSaleDetail }) {
-  const icon =
-    d.status === 'imported' ? '✓' :
-    d.status === 'error' ? '✗' : '—'
-  const color =
-    d.status === 'imported' ? 'text-emerald-600' :
-    d.status === 'error' ? 'text-red-500' : 'text-stone-400'
-
+  const icon = d.status === 'imported' ? '✓' : d.status === 'error' ? '✗' : '—'
+  const color = d.status === 'imported' ? 'text-emerald-600' : d.status === 'error' ? 'text-red-500' : 'text-stone-400'
   return (
     <tr className="border-t border-stone-100 text-sm">
       <td className="py-1.5 pr-3 font-mono text-xs text-stone-500">{d.sale_id}</td>
@@ -67,35 +62,71 @@ function KeenelandSyncInner() {
   const currentYear = new Date().getFullYear()
   const [sinceYear, setSinceYear] = useState(currentYear - 2)
   const [preview, setPreview] = useState<KeenelandDryRunResult | null>(null)
-  const [result, setResult] = useState<KeenelandSyncResult | null>(null)
+  const [syncInfo, setSyncInfo] = useState<KeenelandSyncStarted | null>(null)
+  const [polling, setPolling] = useState(false)
+  const prevCountRef = useRef(0)
 
-  const { data: status, isLoading: statusLoading } = useQuery({
+  const { data: status, isLoading: statusLoading, refetch: refetchStatus } = useQuery({
     queryKey: ['keeneland-status'],
     queryFn: getKeenelandStatus,
+    refetchInterval: polling ? 4000 : false,
   })
+
+  // Stop polling once we've seen all expected batches land as completed
+  useEffect(() => {
+    if (!polling || !syncInfo || !status) return
+    const completed = status.batches.filter((b) => b.status === 'completed').length
+    const processing = status.batches.filter((b) => b.status === 'processing').length
+    const newCount = status.batches.length
+
+    if (newCount > prevCountRef.current) prevCountRef.current = newCount
+
+    // Done when no processing batches and count stopped growing
+    if (processing === 0 && completed >= (syncInfo.alreadyImported + syncInfo.toImport - (syncInfo.alreadyImported))) {
+      setPolling(false)
+      qc.invalidateQueries({ queryKey: ['keeneland-status'] })
+    }
+  }, [status, polling, syncInfo, qc])
+
+  const importedSoFar = status
+    ? status.batches.filter((b) => b.status === 'completed').length
+    : 0
+  const processingSoFar = status
+    ? status.batches.filter((b) => b.status === 'processing').length
+    : 0
+
+  const progress = syncInfo
+    ? Math.min(100, Math.round((importedSoFar / (syncInfo.alreadyImported + syncInfo.toImport)) * 100))
+    : 0
 
   const dryRun = useMutation({
     mutationFn: () => keenelandDryRun(sinceYear),
-    onSuccess: (data) => { setPreview(data); setResult(null) },
+    onSuccess: (data) => { setPreview(data); setSyncInfo(null) },
   })
 
   const sync = useMutation({
     mutationFn: () => keenelandSync(sinceYear),
     onSuccess: (data) => {
-      setResult(data)
       setPreview(null)
-      qc.invalidateQueries({ queryKey: ['keeneland-status'] })
+      if ('started' in data && data.started) {
+        setSyncInfo(data as KeenelandSyncStarted)
+        prevCountRef.current = status?.batches.length ?? 0
+        setPolling(true)
+        refetchStatus()
+      } else {
+        qc.invalidateQueries({ queryKey: ['keeneland-status'] })
+      }
     },
   })
 
-  const busy = dryRun.isPending || sync.isPending
+  const busy = dryRun.isPending || sync.isPending || polling
 
   return (
     <div className="space-y-8">
       <div>
         <h1 className="text-xl font-semibold text-stone-900">Keeneland Sale Sync</h1>
         <p className="text-sm text-stone-500 mt-1">
-          Downloads sale results directly from flex.keeneland.com and imports them into the shared horse catalog.
+          Downloads sale results from flex.keeneland.com and imports them into the shared horse catalog.
           Already-imported sales are skipped automatically.
         </p>
       </div>
@@ -103,7 +134,7 @@ function KeenelandSyncInner() {
       {/* Controls */}
       <div className="bg-white border border-stone-200 rounded-xl p-5 space-y-4">
         <h2 className="text-sm font-semibold text-stone-700">Run Sync</h2>
-        <div className="flex items-end gap-4">
+        <div className="flex items-end gap-4 flex-wrap">
           <div>
             <label className="block text-xs text-stone-500 mb-1">Import sales from year</label>
             <input
@@ -127,9 +158,26 @@ function KeenelandSyncInner() {
             disabled={busy}
             className="px-4 py-1.5 rounded bg-brand-700 text-white text-sm font-medium hover:bg-brand-800 disabled:opacity-40"
           >
-            {sync.isPending ? 'Syncing…' : 'Sync Now'}
+            {sync.isPending ? 'Starting…' : polling ? 'Syncing…' : 'Sync Now'}
           </button>
         </div>
+
+        {/* Progress bar */}
+        {polling && syncInfo && (
+          <div className="space-y-2 pt-1">
+            <div className="flex justify-between text-xs text-stone-500">
+              <span>Importing {syncInfo.toImport} sales in background…</span>
+              <span>{importedSoFar} / {syncInfo.alreadyImported + syncInfo.toImport} completed{processingSoFar > 0 ? ` · ${processingSoFar} processing` : ''}</span>
+            </div>
+            <div className="w-full bg-stone-100 rounded-full h-2 overflow-hidden">
+              <div
+                className="bg-brand-600 h-2 rounded-full transition-all duration-500"
+                style={{ width: `${progress}%` }}
+              />
+            </div>
+          </div>
+        )}
+
         {(dryRun.isError || sync.isError) && (
           <p className="text-sm text-red-600">
             {((dryRun.error || sync.error) as Error)?.message ?? 'Request failed'}
@@ -144,7 +192,7 @@ function KeenelandSyncInner() {
             <h2 className="text-sm font-semibold text-stone-700">Preview</h2>
             <span className="text-xs text-stone-400">dry run — nothing imported</span>
           </div>
-          <div className="flex gap-6 text-sm">
+          <div className="flex gap-6 text-sm flex-wrap">
             <div><span className="text-stone-500">Eligible:</span> <strong>{preview.eligible}</strong></div>
             <div><span className="text-stone-500">Already imported:</span> <strong>{preview.alreadyImported}</strong></div>
             <div><span className="text-stone-500">Will import:</span> <strong className="text-brand-700">{preview.toImport}</strong></div>
@@ -177,44 +225,12 @@ function KeenelandSyncInner() {
         </div>
       )}
 
-      {/* Sync result */}
-      {result && (
-        <div className="bg-white border border-stone-200 rounded-xl p-5 space-y-3">
-          <h2 className="text-sm font-semibold text-stone-700">Sync Complete</h2>
-          <div className="flex gap-6 text-sm">
-            <div><span className="text-stone-500">Eligible:</span> <strong>{result.eligible}</strong></div>
-            <div><span className="text-stone-500">Skipped:</span> <strong>{result.alreadyImported}</strong></div>
-            <div><span className="text-stone-500">Imported:</span> <strong className="text-emerald-600">{result.imported}</strong></div>
-            {result.errored > 0 && <div><span className="text-stone-500">Errors:</span> <strong className="text-red-500">{result.errored}</strong></div>}
-          </div>
-          {result.details.length > 0 && (
-            <div className="overflow-auto max-h-80">
-              <table className="w-full text-left">
-                <thead>
-                  <tr className="text-xs text-stone-400 uppercase tracking-wide">
-                    <th className="pb-2 pr-3">Sale ID</th>
-                    <th className="pb-2 pr-3">Name</th>
-                    <th className="pb-2 pr-3">Date</th>
-                    <th className="pb-2 pr-3">Status</th>
-                    <th className="pb-2 pr-3 text-right">Created</th>
-                    <th className="pb-2 pr-3 text-right">Matched</th>
-                    <th className="pb-2 text-right">Errors</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {result.details.map((d) => <DetailRow key={d.sale_id} d={d} />)}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      )}
-
       {/* Import history */}
       <div className="bg-white border border-stone-200 rounded-xl p-5 space-y-3">
         <h2 className="text-sm font-semibold text-stone-700">
           Import History
           {status && <span className="ml-2 text-stone-400 font-normal">({status.count} sales)</span>}
+          {polling && <span className="ml-2 text-amber-500 text-xs font-normal animate-pulse">● live</span>}
         </h2>
         {statusLoading && <p className="text-sm text-stone-400">Loading…</p>}
         {status && status.batches.length === 0 && (

@@ -392,52 +392,49 @@ router.post('/keeneland/sync', requireAuth, requireAdmin, async (req: Request, r
   }
 
   if (toImport.length === 0) {
-    res.json({ eligible: eligible.length, alreadyImported: importedFileNames.size, imported: 0, errored: 0, details: [] })
+    res.json({ eligible: eligible.length, alreadyImported: importedFileNames.size, started: false, imported: 0, errored: 0, details: [] })
     return
   }
 
-  const details: object[] = []
-  for (const sale of toImport) {
-    try {
-      const csvResp = await fetch(keenelandCsvUrl(sale.sale_id))
-      if (!csvResp.ok) throw new Error(`HTTP ${csvResp.status}`)
-      const buffer = Buffer.from(await csvResp.text(), 'utf-8')
+  // Return immediately — sync runs in background to avoid Render's 30s HTTP timeout
+  res.json({ started: true, eligible: eligible.length, alreadyImported: importedFileNames.size, toImport: toImport.length })
 
-      const parsed = parseCSV(buffer)
-      if (parsed.rows.length === 0) {
-        details.push({ sale_id: sale.sale_id, name: sale.sale_name, status: 'skipped', reason: 'empty CSV' })
-        continue
+  // Background processing — response already sent
+  ;(async () => {
+    for (const sale of toImport) {
+      try {
+        const csvResp = await fetch(keenelandCsvUrl(sale.sale_id))
+        if (!csvResp.ok) throw new Error(`HTTP ${csvResp.status}`)
+        const buffer = Buffer.from(await csvResp.text(), 'utf-8')
+
+        const parsed = parseCSV(buffer)
+        if (parsed.rows.length === 0) continue
+
+        const normalized = parsed.rows.map((row) => {
+          const price = row['Price']
+          if (price === '---' || price === '0') return { ...row, Price: '' }
+          return row
+        })
+
+        const mapped = applyMapping(normalized, preset.columns)
+        const validated = validateRows(mapped)
+
+        const batch = await prisma.importBatch.create({
+          data: { importedByUserId: userId, source: 'csv', sourceFileName: `keeneland_${sale.sale_id}`, totalRows: parsed.rows.length, status: 'processing' },
+        })
+
+        const result = await executeImport(validated, 'shared', batch.id, userId, preset.defaultDiscipline)
+
+        await prisma.importBatch.update({
+          where: { id: batch.id },
+          data: { status: 'completed', createdCount: result.createdCount, matchedCount: result.matchedCount, errorCount: result.errorCount, errorLog: result.errorLog as never },
+        })
+      } catch (e) {
+        console.error(`[keeneland-sync] failed sale ${sale.sale_id}:`, e)
       }
-
-      const normalized = parsed.rows.map((row) => {
-        const price = row['Price']
-        if (price === '---' || price === '0') return { ...row, Price: '' }
-        return row
-      })
-
-      const mapped = applyMapping(normalized, preset.columns)
-      const validated = validateRows(mapped)
-
-      const batch = await prisma.importBatch.create({
-        data: { importedByUserId: userId, source: 'csv', sourceFileName: `keeneland_${sale.sale_id}`, totalRows: parsed.rows.length, status: 'processing' },
-      })
-
-      const result = await executeImport(validated, 'shared', batch.id, userId, preset.defaultDiscipline)
-
-      await prisma.importBatch.update({
-        where: { id: batch.id },
-        data: { status: 'completed', createdCount: result.createdCount, matchedCount: result.matchedCount, errorCount: result.errorCount, errorLog: result.errorLog as never },
-      })
-
-      details.push({ sale_id: sale.sale_id, name: sale.sale_name, date: sale.begin_date, status: 'imported', totalRows: parsed.rows.length, created: result.createdCount, matched: result.matchedCount, errors: result.errorCount })
-    } catch (e) {
-      details.push({ sale_id: sale.sale_id, name: sale.sale_name, status: 'error', reason: (e as Error).message })
     }
-  }
-
-  const imported = details.filter((d) => (d as { status: string }).status === 'imported').length
-  const errored = details.filter((d) => (d as { status: string }).status === 'error').length
-  res.json({ eligible: eligible.length, alreadyImported: importedFileNames.size, imported, errored, details })
+    console.log(`[keeneland-sync] background sync complete for ${toImport.length} sales`)
+  })().catch(console.error)
 })
 
 export default router

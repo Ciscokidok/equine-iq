@@ -50,11 +50,18 @@ export interface KeenelandSyncResult {
   details: KeenelandSaleDetail[]
 }
 
+export interface KeenelandSyncStarted {
+  started: true
+  eligible: number
+  alreadyImported: number
+  toImport: number
+}
+
 export const getKeenelandStatus = (): Promise<KeenelandStatusResult> =>
   client.get<KeenelandStatusResult>('/api/import/keeneland/status').then((r) => r.data)
 
 export const keenelandDryRun = (sinceYear: number): Promise<KeenelandDryRunResult> =>
   client.post<KeenelandDryRunResult>('/api/import/keeneland/sync', { sinceYear, dryRun: true }).then((r) => r.data)
 
-export const keenelandSync = (sinceYear: number): Promise<KeenelandSyncResult> =>
-  client.post<KeenelandSyncResult>('/api/import/keeneland/sync', { sinceYear }).then((r) => r.data)
+export const keenelandSync = (sinceYear: number): Promise<KeenelandSyncStarted | KeenelandSyncResult> =>
+  client.post('/api/import/keeneland/sync', { sinceYear }).then((r) => r.data)
