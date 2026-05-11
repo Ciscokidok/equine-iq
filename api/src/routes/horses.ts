@@ -29,6 +29,24 @@ function computeInbreedingFlags(pedigree: Record<string, any>): Array<{ name: st
     .sort((a, b) => b.count - a.count)
 }
 
+router.get('/:id/sale-history', requireAuth, async (req: Request, res: Response) => {
+  const records = await prisma.saleRecord.findMany({
+    where: { horseId: req.params.id },
+    orderBy: { saleDate: 'desc' },
+    select: {
+      id: true,
+      saleSource: true,
+      saleSessionName: true,
+      saleDate: true,
+      hipNumber: true,
+      hammerPriceCents: true,
+      buyerName: true,
+      consignorName: true,
+    },
+  })
+  res.json({ records })
+})
+
 router.get('/:id/pedigree', requireAuth, async (req: Request, res: Response) => {
   const horse = await prisma.horse.findUnique({ where: { id: req.params.id } })
   if (!horse) { res.status(404).json({ error: 'Not found' }); return }

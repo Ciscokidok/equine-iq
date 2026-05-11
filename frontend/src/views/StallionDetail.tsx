@@ -53,6 +53,13 @@ export default function StallionDetail() {
   })
 
   const { data: saleStats } = useStallionSaleStats(id ?? '')
+  const { data: saleHistory } = useQuery({
+    queryKey: ['horse-sale-history', id],
+    queryFn: () => fetch(`/api/horses/${id}/sale-history`, {
+      headers: { Authorization: `Bearer ${localStorage.getItem('auth_token')}` },
+    }).then((r) => r.json()) as Promise<{ records: Array<{ id: string; saleSource: string; saleSessionName: string | null; saleDate: string; hipNumber: string | null; hammerPriceCents: number; buyerName: string | null; consignorName: string | null }> }>,
+    enabled: !!id,
+  })
 
   if (isLoading) return <p className="text-sm text-stone-400">Loading…</p>
   if (isError || !stallion) return <p className="text-sm text-red-500">Stallion not found.</p>
@@ -320,6 +327,55 @@ export default function StallionDetail() {
           </>
         )}
       </div>
+
+      {/* Sale History from imports */}
+      {saleHistory && saleHistory.records.length > 0 && (
+        <div className="bg-white border border-stone-200 rounded-lg p-4">
+          <h2 className="text-sm font-semibold mb-3">Sale History</h2>
+          <div className="space-y-2">
+            {saleHistory.records.map((r) => (
+              <div key={r.id} className="flex flex-wrap gap-x-6 gap-y-1 text-sm border-b border-stone-100 pb-2 last:border-0 last:pb-0">
+                <div>
+                  <span className="text-xs text-stone-400">Date </span>
+                  <span>{new Date(r.saleDate).toLocaleDateString()}</span>
+                </div>
+                {r.saleSessionName && (
+                  <div>
+                    <span className="text-xs text-stone-400">Sale </span>
+                    <span>{r.saleSessionName}</span>
+                  </div>
+                )}
+                {r.hipNumber && (
+                  <div>
+                    <span className="text-xs text-stone-400">Hip </span>
+                    <span>#{r.hipNumber}</span>
+                  </div>
+                )}
+                <div>
+                  <span className="text-xs text-stone-400">Price </span>
+                  <span className="font-medium">
+                    {r.hammerPriceCents > 0
+                      ? (r.hammerPriceCents / 100).toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })
+                      : 'N/A'}
+                  </span>
+                </div>
+                {r.buyerName && (
+                  <div>
+                    <span className="text-xs text-stone-400">Buyer </span>
+                    <span>{r.buyerName}</span>
+                  </div>
+                )}
+                {r.consignorName && (
+                  <div>
+                    <span className="text-xs text-stone-400">Consignor </span>
+                    <span>{r.consignorName}</span>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <GeneticRiskPanel mareBreed="" stallionBreed={stallion.breed} discipline={stallion.discipline} />
     </div>
