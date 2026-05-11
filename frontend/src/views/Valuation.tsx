@@ -181,16 +181,26 @@ function StallionTab() {
   )
 }
 
-type CompSortKey = 'ratio' | 'salePrice' | 'sireAvg' | 'horseName' | 'sire' | 'saleDate'
+type CompSortKey = 'ratio' | 'salePrice' | 'sireAvg' | 'horseName' | 'saleDate'
 
 function ComparablesTab() {
-  const { data, isLoading, isError } = useQuery({
-    queryKey: ['valuation-comparables'],
-    queryFn: getSaleComparables,
-  })
+  const [selectedSire, setSelectedSire] = useState('')
+  const [nameSearch, setNameSearch] = useState('')
   const [sortKey, setCompSortKey] = useState<CompSortKey>('ratio')
   const [sortDir, setCompSortDir] = useState<SortDir>('desc')
-  const [sireFilter, setSireFilter] = useState('')
+
+  // Initial load — just fetch the sire list (fast)
+  const siresQuery = useQuery({
+    queryKey: ['valuation-comparables-sires'],
+    queryFn: () => getSaleComparables(null),
+  })
+
+  // Fetch comparable data only when a sire is selected
+  const dataQuery = useQuery({
+    queryKey: ['valuation-comparables', selectedSire],
+    queryFn: () => getSaleComparables(selectedSire),
+    enabled: !!selectedSire,
+  })
 
   function toggleSort(key: CompSortKey) {
     if (sortKey === key) {
@@ -201,10 +211,12 @@ function ComparablesTab() {
     }
   }
 
-  const comparables = data?.comparables ?? []
-  const sires = [...new Set(comparables.map((c) => c.sire).filter(Boolean))].sort() as string[]
+  const sires = siresQuery.data?.sires ?? []
+  const comparables = dataQuery.data?.comparables ?? []
 
-  const filtered = sireFilter ? comparables.filter((c) => c.sire === sireFilter) : comparables
+  const filtered = nameSearch
+    ? comparables.filter((c) => c.horseName.toLowerCase().includes(nameSearch.toLowerCase()))
+    : comparables
 
   const sorted = [...filtered].sort((a, b) => {
     let av: number, bv: number
@@ -212,11 +224,8 @@ function ComparablesTab() {
     else if (sortKey === 'salePrice') { av = a.salePrice; bv = b.salePrice }
     else if (sortKey === 'sireAvg') { av = a.sireAvg; bv = b.sireAvg }
     else if (sortKey === 'saleDate') { av = new Date(a.saleDate).getTime(); bv = new Date(b.saleDate).getTime() }
-    else if (sortKey === 'horseName') {
+    else {
       return sortDir === 'asc' ? a.horseName.localeCompare(b.horseName) : b.horseName.localeCompare(a.horseName)
-    } else {
-      const as = a.sire ?? ''; const bs = b.sire ?? ''
-      return sortDir === 'asc' ? as.localeCompare(bs) : bs.localeCompare(as)
     }
     return sortDir === 'asc' ? av - bv : bv - av
   })
@@ -234,49 +243,58 @@ function ComparablesTab() {
     )
   }
 
-  if (isLoading) return <p className="text-sm text-stone-400 py-8">Loading…</p>
-  if (isError) return <p className="text-sm text-red-500 py-8">Failed to load comparable data.</p>
+  if (siresQuery.isLoading) return <p className="text-sm text-stone-400 py-8">Loading…</p>
+  if (siresQuery.isError) return <p className="text-sm text-red-500 py-8">Failed to load comparable data.</p>
 
   return (
     <div className="space-y-4">
       <p className="text-sm text-stone-500">
         Each horse's sale price compared to the average for all horses with the same sire.
-        Only sires with 3+ offspring in the sale data are included.
+        Select a sire to see individual results.
       </p>
       <div className="flex items-center gap-3 flex-wrap">
         <select
-          value={sireFilter}
-          onChange={(e) => setSireFilter(e.target.value)}
+          value={selectedSire}
+          onChange={(e) => { setSelectedSire(e.target.value); setNameSearch('') }}
           className="border border-stone-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
         >
-          <option value="">All sires ({comparables.length} sales)</option>
+          <option value="">— Select a sire ({sires.length} available) —</option>
           {sires.map((s) => (
             <option key={s} value={s}>{s}</option>
           ))}
         </select>
-        {sireFilter && (
-          <button onClick={() => setSireFilter('')} className="text-xs text-stone-400 hover:text-stone-600">
-            Clear filter
-          </button>
+        {selectedSire && (
+          <input
+            type="text"
+            placeholder="Search horse name…"
+            value={nameSearch}
+            onChange={(e) => setNameSearch(e.target.value)}
+            className="border border-stone-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 w-52"
+          />
         )}
       </div>
 
-      {sorted.length === 0 ? (
+      {!selectedSire ? (
         <p className="text-sm text-stone-400 italic py-4">
-          {comparables.length === 0
+          {sires.length === 0
             ? 'No comparable data found. Sync Keeneland sales first.'
-            : 'No results for this sire.'}
+            : 'Select a sire above to see sale comparables.'}
         </p>
+      ) : dataQuery.isLoading ? (
+        <p className="text-sm text-stone-400 py-4">Loading comparables for {selectedSire}…</p>
+      ) : sorted.length === 0 ? (
+        <p className="text-sm text-stone-400 italic py-4">No results.</p>
       ) : (
         <div className="overflow-auto">
+          <p className="text-xs text-stone-400 mb-2">
+            {sorted.length} sale{sorted.length !== 1 ? 's' : ''} — sire avg {fmt(sorted[0]?.sireAvg ?? 0)} across {sorted[0]?.sireCount ?? 0} offspring
+          </p>
           <table className="w-full text-left text-sm">
             <thead>
               <tr className="text-xs text-stone-400 uppercase tracking-wide">
                 <SortHeader label="Horse" k="horseName" />
-                <SortHeader label="Sire" k="sire" />
                 <SortHeader label="Sale Price" k="salePrice" />
                 <SortHeader label="Sire Avg" k="sireAvg" />
-                <th className="pb-2 pr-4 text-left text-xs text-stone-400 uppercase tracking-wide">Sire Sales</th>
                 <SortHeader label="Date" k="saleDate" />
                 <th className="pb-2 pr-4 text-left text-xs text-stone-400 uppercase tracking-wide">Session</th>
                 <SortHeader label="vs Sire Avg" k="ratio" />
@@ -286,14 +304,12 @@ function ComparablesTab() {
               {sorted.map((c) => (
                 <tr key={c.saleId} className="border-t border-stone-100 hover:bg-stone-50">
                   <td className="py-2.5 pr-4">
-                    <Link to={`/stallions/${c.horseId}`} className="font-medium text-stone-900 hover:text-brand-700">
+                    <Link to={`/horses/${c.horseId}/pedigree`} className="font-medium text-stone-900 hover:text-brand-700">
                       {c.horseName}
                     </Link>
                   </td>
-                  <td className="py-2.5 pr-4 text-stone-500">{c.sire ?? '—'}</td>
                   <td className="py-2.5 pr-4 font-medium text-stone-800">{fmt(c.salePrice)}</td>
                   <td className="py-2.5 pr-4 text-stone-500">{fmt(c.sireAvg)}</td>
-                  <td className="py-2.5 pr-4 text-stone-400">{c.sireCount}</td>
                   <td className="py-2.5 pr-4 text-stone-400 text-xs">
                     {new Date(c.saleDate).toLocaleDateString()}
                   </td>

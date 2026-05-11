@@ -62,7 +62,9 @@ router.get('/valuation/stallions', requireAuth, async (_req: Request, res: Respo
 
 // GET /api/analytics/valuation/comparables
 // Returns individual horses ranked against their sire-group average
-router.get('/valuation/comparables', requireAuth, async (_req: Request, res: Response) => {
+router.get('/valuation/comparables', requireAuth, async (req: Request, res: Response) => {
+  const sire = (req.query.sire as string) || null
+
   type ComparableRow = {
     horse_id: string
     horse_name: string
@@ -74,16 +76,15 @@ router.get('/valuation/comparables', requireAuth, async (_req: Request, res: Res
     sire_avg: bigint
     sire_median: bigint
     sire_count: bigint
-    ratio: number
+    ratio: string
   }
 
-  const rows = await prisma.$queryRaw<ComparableRow[]>`
-    WITH sire_stats AS (
-      SELECT
-        o.pedigree->>'sire'                                                              AS sire_name,
-        COUNT(sr.id)::int                                                                AS sire_count,
-        ROUND(AVG(sr."hammerPriceCents"))::bigint                                        AS sire_avg,
-        ROUND(PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY sr."hammerPriceCents"))::bigint AS sire_median
+  type SireRow = { sire_name: string }
+
+  try {
+    // Return the list of sires with 2+ offspring sold so the client can populate its filter
+    const sireRows = await prisma.$queryRaw<SireRow[]>`
+      SELECT o.pedigree->>'sire' AS sire_name
       FROM "Horse" o
       JOIN "SaleRecord" sr ON sr."horseId" = o.id
       WHERE sr."hammerPriceCents" > 0
@@ -91,44 +92,70 @@ router.get('/valuation/comparables', requireAuth, async (_req: Request, res: Res
         AND o.pedigree->>'sire' != ''
         AND o.pedigree->>'sire' != 'null'
       GROUP BY o.pedigree->>'sire'
-      HAVING COUNT(sr.id) >= 3
-    )
-    SELECT
-      o.id                                                                               AS horse_id,
-      o.name                                                                             AS horse_name,
-      o.pedigree->>'sire'                                                                AS sire,
-      sr.id                                                                              AS sale_id,
-      sr."hammerPriceCents"::bigint                                                      AS sale_price,
-      sr."saleDate"                                                                      AS sale_date,
-      sr."saleSessionName"                                                               AS sale_session,
-      ss.sire_avg,
-      ss.sire_median,
-      ss.sire_count,
-      ROUND((sr."hammerPriceCents"::float / NULLIF(ss.sire_avg::float, 0)) * 100) / 100 AS ratio
-    FROM "Horse" o
-    JOIN "SaleRecord" sr ON sr."horseId" = o.id
-    JOIN sire_stats ss ON ss.sire_name = o.pedigree->>'sire'
-    WHERE sr."hammerPriceCents" > 0
-    ORDER BY ratio DESC
-  `
+      HAVING COUNT(sr.id) >= 2
+      ORDER BY o.pedigree->>'sire'
+    `
+    const sires = sireRows.map((r) => r.sire_name)
 
-  const comparables = rows.map((r) => ({
-    horseId: r.horse_id,
-    horseName: r.horse_name,
-    sire: r.sire,
-    saleId: r.sale_id,
-    salePrice: Number(r.sale_price),
-    saleDate: r.sale_date,
-    saleSession: r.sale_session,
-    sireAvg: Number(r.sire_avg),
-    sireMedian: Number(r.sire_median),
-    sireCount: Number(r.sire_count),
-    // ratio > 1 = sold above sire-group average (potentially overvalued)
-    // ratio < 1 = sold below sire-group average (potentially undervalued)
-    ratio: Number(r.ratio),
-  }))
+    // If no sire filter is provided return metadata only (sire list) so the page
+    // can render the filter dropdown without fetching thousands of rows up front.
+    if (!sire) {
+      res.json({ comparables: [], sires, requiresSireFilter: true })
+      return
+    }
 
-  res.json({ comparables })
+    const rows = await prisma.$queryRaw<ComparableRow[]>`
+      WITH sire_stats AS (
+        SELECT
+          o.pedigree->>'sire'                                                              AS sire_name,
+          COUNT(sr.id)::int                                                                AS sire_count,
+          ROUND(AVG(sr."hammerPriceCents"))::bigint                                        AS sire_avg,
+          ROUND(PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY sr."hammerPriceCents"))::bigint AS sire_median
+        FROM "Horse" o
+        JOIN "SaleRecord" sr ON sr."horseId" = o.id
+        WHERE sr."hammerPriceCents" > 0
+          AND o.pedigree->>'sire' = ${sire}
+        GROUP BY o.pedigree->>'sire'
+      )
+      SELECT
+        o.id                                                                               AS horse_id,
+        o.name                                                                             AS horse_name,
+        o.pedigree->>'sire'                                                                AS sire,
+        sr.id                                                                              AS sale_id,
+        sr."hammerPriceCents"::bigint                                                      AS sale_price,
+        sr."saleDate"                                                                      AS sale_date,
+        sr."saleSessionName"                                                               AS sale_session,
+        ss.sire_avg,
+        ss.sire_median,
+        ss.sire_count,
+        ROUND((sr."hammerPriceCents"::float / NULLIF(ss.sire_avg::float, 0)) * 100) / 100 AS ratio
+      FROM "Horse" o
+      JOIN "SaleRecord" sr ON sr."horseId" = o.id
+      JOIN sire_stats ss ON ss.sire_name = o.pedigree->>'sire'
+      WHERE sr."hammerPriceCents" > 0
+      ORDER BY ratio DESC
+      LIMIT 500
+    `
+
+    const comparables = rows.map((r) => ({
+      horseId: r.horse_id,
+      horseName: r.horse_name,
+      sire: r.sire,
+      saleId: r.sale_id,
+      salePrice: Number(r.sale_price),
+      saleDate: r.sale_date,
+      saleSession: r.sale_session,
+      sireAvg: Number(r.sire_avg),
+      sireMedian: Number(r.sire_median),
+      sireCount: Number(r.sire_count),
+      ratio: parseFloat(r.ratio as unknown as string),
+    }))
+
+    res.json({ comparables, sires, requiresSireFilter: false })
+  } catch (e: unknown) {
+    console.error('[comparables]', e)
+    res.status(500).json({ error: e instanceof Error ? e.message : 'Query failed' })
+  }
 })
 
 // GET /api/analytics/valuation/pinhooking

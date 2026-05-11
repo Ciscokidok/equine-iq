@@ -102,13 +102,8 @@ router.post('/', requireAuth, async (req: Request, res: Response) => {
 })
 
 router.get('/:id', requireAuth, async (req: Request, res: Response) => {
-  const userId = getUserId(req)
   const stallion = await prisma.horse.findFirst({
-    where: {
-      id: req.params.id,
-      sex: 'stallion',
-      OR: [{ createdByUser: null }, { createdByUser: userId }],
-    },
+    where: { id: req.params.id, sex: 'stallion' },
   })
   if (!stallion) { res.status(404).json({ error: 'Not found' }); return }
   res.json(stallion)

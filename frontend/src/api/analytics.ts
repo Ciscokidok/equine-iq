@@ -26,6 +26,12 @@ export interface SaleComparable {
   ratio: number
 }
 
+export interface SaleComparablesResult {
+  comparables: SaleComparable[]
+  sires: string[]
+  requiresSireFilter: boolean
+}
+
 export interface PinhookHorse {
   horseId: string
   horseName: string
@@ -75,8 +81,10 @@ export interface ProductionCost {
 export const getStallionValuations = (): Promise<{ stallions: StallionValuation[] }> =>
   client.get('/api/analytics/valuation/stallions').then((r) => r.data)
 
-export const getSaleComparables = (): Promise<{ comparables: SaleComparable[] }> =>
-  client.get('/api/analytics/valuation/comparables').then((r) => r.data)
+export const getSaleComparables = (sire: string | null): Promise<SaleComparablesResult> => {
+  const params = sire ? { sire } : {}
+  return client.get('/api/analytics/valuation/comparables', { params }).then((r) => r.data)
+}
 
 export const getPinhooking = (): Promise<{ horses: PinhookHorse[] }> =>
   client.get('/api/analytics/valuation/pinhooking').then((r) => r.data)
