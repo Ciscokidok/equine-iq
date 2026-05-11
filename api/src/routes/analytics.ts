@@ -31,7 +31,12 @@ router.get('/valuation/stallions', requireAuth, async (_req: Request, res: Respo
         MAX(sr."hammerPriceCents")::bigint                                            AS max_price
       FROM "Horse" o
       JOIN "SaleRecord" sr ON sr."horseId" = o.id
-      LEFT JOIN "Horse" s ON s.name = o.pedigree->>'sire' AND s.sex = 'stallion'
+      LEFT JOIN "Horse" s
+        ON LOWER(s.name) = LOWER(o.pedigree->>'sire')
+        AND s.sex = 'stallion'
+        AND NOT EXISTS (
+          SELECT 1 FROM "SaleRecord" sr2 WHERE sr2."horseId" = s.id
+        )
       WHERE sr."hammerPriceCents" > 0
         AND o.pedigree->>'sire' IS NOT NULL
         AND o.pedigree->>'sire' != ''
