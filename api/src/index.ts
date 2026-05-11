@@ -24,6 +24,7 @@ import importRouter from './routes/import'
 import platformProvidersRouter from './routes/admin/platformProviders'
 import studBookingsRouter from './routes/studBookings'
 import foalPipelineRouter from './routes/admin/foalPipeline'
+import keenelandSyncRouter from './routes/admin/keenelandSync'
 
 const app = express()
 
@@ -62,6 +63,7 @@ app.use('/api/admin/adapters', adaptersRouter)
 app.use('/api/import', importRouter)
 app.use('/api/admin/platform-providers', platformProvidersRouter)
 app.use('/api/admin/foal-pipeline', foalPipelineRouter)
+app.use('/api/admin/keeneland', keenelandSyncRouter)
 
 httpServer.listen(PORT, () => console.log(`EquineIQ API running on :${PORT}`))
 

@@ -23,25 +23,20 @@ export interface ColumnMappingPreset {
 
 export const PRESETS: Record<string, ColumnMappingPreset> = {
   keeneland: {
-    // NOTE: verify against actual export sample
     name: 'keeneland',
     displayName: 'Keeneland',
     defaultDiscipline: 'thoroughbred_racing',
     columns: {
-      hipNumber: 'Hip No.',
-      horseName: 'Horse',
+      hipNumber: 'Hip',
+      horseName: 'Horse Name',
       sex: 'Sex',
-      breed: 'Breed',
       sire: 'Sire',
       dam: 'Dam',
-      damsire: 'Dam Sire',
-      dateOfBirth: 'Foaling Date',
-      saleDate: 'Sale Date',
+      dateOfBirth: 'DOB',
       saleSessionName: 'Session',
       hammerPrice: 'Price',
-      buyerName: 'Buyer',
-      consignorName: 'Consignor',
-      registrationNumber: 'Reg. No.',
+      buyerName: 'Purchaser',
+      consignorName: 'PropertyLine1',
     },
   },
   fasig_tipton: {
