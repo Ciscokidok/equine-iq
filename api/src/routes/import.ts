@@ -350,12 +350,10 @@ router.get('/keeneland/status', requireAuth, requireAdmin, async (_req: Request,
   res.json({ count: batches.length, batches })
 })
 
-// POST /api/import/keeneland/cleanup — mark stuck processing batches as failed
+// POST /api/import/keeneland/cleanup — mark all stuck processing batches as failed
 router.post('/keeneland/cleanup', requireAuth, requireAdmin, async (_req: Request, res: Response) => {
-  // A batch stuck in processing for >10 min is considered failed
-  const cutoff = new Date(Date.now() - 10 * 60 * 1000)
   const stuck = await prisma.importBatch.findMany({
-    where: { sourceFileName: { startsWith: 'keeneland_' }, status: 'processing', createdAt: { lt: cutoff } },
+    where: { sourceFileName: { startsWith: 'keeneland_' }, status: 'processing' },
     select: { id: true, sourceFileName: true },
   })
   if (stuck.length === 0) {
