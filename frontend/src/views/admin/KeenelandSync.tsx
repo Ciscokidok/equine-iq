@@ -250,7 +250,7 @@ function KeenelandSyncInner() {
               disabled={busy}
               className="text-xs px-3 py-1 rounded border border-amber-300 text-amber-700 hover:bg-amber-50 disabled:opacity-40"
             >
-              {cleanup.isPending ? 'Cleaning…' : 'Fix stuck batches'}
+              {cleanup.isPending ? 'Clearing…' : 'Clear stuck & retry'}
             </button>
           )}
         </div>

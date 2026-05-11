@@ -350,21 +350,26 @@ router.get('/keeneland/status', requireAuth, requireAdmin, async (_req: Request,
   res.json({ count: batches.length, batches })
 })
 
-// POST /api/import/keeneland/cleanup — mark all stuck processing batches as failed
+// POST /api/import/keeneland/cleanup — delete ALL batches for sales that never completed
+// Deleting (rather than marking failed) ensures the sync will retry them cleanly
 router.post('/keeneland/cleanup', requireAuth, requireAdmin, async (_req: Request, res: Response) => {
-  const stuck = await prisma.importBatch.findMany({
-    where: { sourceFileName: { startsWith: 'keeneland_' }, status: 'processing' },
-    select: { id: true, sourceFileName: true },
+  // Find all keeneland sale IDs that have no completed batch
+  const allBatches = await prisma.importBatch.findMany({
+    where: { sourceFileName: { startsWith: 'keeneland_' } },
+    select: { id: true, sourceFileName: true, status: true },
   })
-  if (stuck.length === 0) {
-    res.json({ fixed: 0 })
+  const completedSales = new Set(
+    allBatches.filter((b) => b.status === 'completed').map((b) => b.sourceFileName!)
+  )
+  // Delete every batch for sales that have no completed batch
+  const toDelete = allBatches.filter((b) => !completedSales.has(b.sourceFileName!))
+  if (toDelete.length === 0) {
+    res.json({ deleted: 0 })
     return
   }
-  await prisma.importBatch.updateMany({
-    where: { id: { in: stuck.map((b) => b.id) } },
-    data: { status: 'failed' },
-  })
-  res.json({ fixed: stuck.length, batches: stuck.map((b) => b.sourceFileName) })
+  await prisma.importBatch.deleteMany({ where: { id: { in: toDelete.map((b) => b.id) } } })
+  const sales = [...new Set(toDelete.map((b) => b.sourceFileName!))]
+  res.json({ deleted: toDelete.length, sales })
 })
 
 // POST /api/import/keeneland/sync
