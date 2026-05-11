@@ -184,3 +184,128 @@ The stallion listing tier is recurring revenue that doesn't depend on transactio
 3. **Find one bloodstock agent willing to be a public case study** — agents have credibility with breeders
 4. **Post in COTH and NRHA Facebook groups** with a specific use case ("I built a tool that shows you whether a stallion's stud fee is justified by what his foals actually sell for") — not a sales pitch, a demonstration
 5. **Contact a mid-size stallion farm directly** — offer free listing for the first season in exchange for feedback and a reference
+
+---
+
+## Cold Outreach Templates
+
+### Email to a Breeder (Tier 1)
+
+**Subject:** Built something you might find useful — Keeneland ROI on any stallion
+
+Hi [Name],
+
+I came across your program through [referral / publication / show results] and wanted to reach out directly.
+
+I've been building a platform called EquineIQ that does one thing most breeders don't have access to: it shows you what a stallion's foals actually sell for at Keeneland versus what he charges to breed. Before you book a $50,000 stud fee, you can see whether his progeny average $30,000 or $80,000 at auction — and how that compares to every other stallion in the same price range.
+
+It also has a stud book for managing your mares through the breeding season — status tracking, due dates, foal records — so you're not juggling spreadsheets during foaling.
+
+I'd like to offer you free access for 90 days. No credit card, no obligation. If it saves you one bad breeding decision it'll pay for itself many times over.
+
+Would a 20-minute call this week work? I can walk you through it with live Keeneland data.
+
+[Your name]
+[equineiq.app or your domain]
+
+---
+
+### Email to a Stallion Owner / Farm Manager (Tier 2)
+
+**Subject:** Free listing offer — EquineIQ stallion directory
+
+Hi [Name],
+
+I'm reaching out because [Farm Name]'s stallions deserve to be in front of breeders who make decisions based on data, not just advertising.
+
+EquineIQ is a breeding platform where breeders use auction analytics and an AI mating advisor to evaluate stallions before they book. The breeders who find a stallion through our platform have already reviewed his progeny's sale history and decided he's a fit for their mare — they're not browsing, they're ready to book.
+
+I'd like to offer [Farm Name] a complimentary listing for your first season — no charge, no commitment. In exchange I'd ask for 30 minutes of feedback on the platform and permission to mention you as an early partner.
+
+Happy to jump on a call or send more information. Let me know what works.
+
+[Your name]
+[equineiq.app or your domain]
+
+---
+
+### Email to a Bloodstock Agent (Tier 3)
+
+**Subject:** Tool that might be useful for your clients
+
+Hi [Name],
+
+I know you evaluate a lot of horses under time pressure. I built a platform that might make the research side faster.
+
+EquineIQ pulls Keeneland sale data and shows you how any horse priced relative to its sire group — so you can spot horses selling at a discount to their bloodlines before your clients ask. It also has a mating advisor that runs AI analysis against the stallion catalog and flags pedigree concerns.
+
+Would love to get your take on it. I'll give you free professional access for 90 days and genuinely want the feedback from someone who does this for a living.
+
+15 minutes this week?
+
+[Your name]
+[equineiq.app or your domain]
+
+---
+
+## In-Person Demo Script (Sales / Shows)
+
+Use this at Keeneland, AQHA World Show, NRHA Futurity, or any barn conversation. Takes 5–7 minutes.
+
+---
+
+**Opening (30 seconds)**
+
+> "Can I show you something quick? I built a tool that answers the question breeders always have but rarely get a straight answer on — is this stallion's stud fee actually worth it based on what his foals sell for?"
+
+Pull up the Valuation page on your phone or laptop.
+
+---
+
+**The hook — Stallion ROI tab (60 seconds)**
+
+> "This is every sire with offspring sold at Keeneland. See this column — that's his average stud fee. This one is what his foals actually hammer for on average. This badge tells you if he's undervalued or overvalued relative to what the market returns."
+
+Point to a well-known stallion they'd recognize. If they know the horse personally, even better.
+
+> "A lot of breeders pay a premium for a fashionable name and the foals don't hold that value at auction. This shows you that before you write the check."
+
+---
+
+**The pain point (30 seconds)**
+
+> "How are you tracking this today? Most people I talk to have a spreadsheet — maybe. A lot of it's in their head or in a notebook."
+
+Let them respond. If they say spreadsheet: *"Right, and that spreadsheet doesn't know what Curlin foals averaged at the September sale last year."*
+
+---
+
+**The stud book (60 seconds)**
+
+> "The other thing it does — and this is what breeders tell me saves them the most time — is this."
+
+Pull up the Stud Book.
+
+> "Every mare, her status, who she's bred to, when she's due. Mares foaling in the next 30 days get flagged right here. You can update status from your phone when you're in the barn."
+
+---
+
+**Close (30 seconds)**
+
+> "I'm giving free access to the first breeders who try it and give me feedback. Takes about 5 minutes to set up your mares. If it's not useful after 90 days you've lost nothing."
+
+Hand them a card or have them put their email in on the spot.
+
+> "What's your email — I'll set you up today."
+
+---
+
+**Handling common objections**
+
+| Objection | Response |
+|---|---|
+| "I already know which stallions I like" | "This doesn't tell you who to use — it tells you if the price is right for the one you already like." |
+| "The data is only Keeneland" | "For Thoroughbreds that's where the market is made. I'm adding Fasig-Tipton next." |
+| "I don't trust AI for breeding decisions" | "The AI is a research assistant, not the decision-maker. It surfaces things to consider — you still make the call." |
+| "I'm not very technical" | "If you can use your phone you can use this. The stud book is basically a smarter version of what you're already doing in a notebook." |
+| "How much does it cost?" | "Free for 90 days. After that it's $49/month — less than one vet call." |
