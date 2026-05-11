@@ -8,6 +8,7 @@ import { useStallionSaleStats } from '@/api/auctionSales'
 import { getMares } from '@/api/mares'
 import { createBooking } from '@/api/studBookings'
 import { toast } from 'sonner'
+import client from '@/api/client'
 
 export default function StallionDetail() {
   const { id } = useParams<{ id: string }>()
@@ -55,9 +56,7 @@ export default function StallionDetail() {
   const { data: saleStats } = useStallionSaleStats(id ?? '')
   const { data: saleHistory } = useQuery({
     queryKey: ['horse-sale-history', id],
-    queryFn: () => fetch(`/api/horses/${id}/sale-history`, {
-      headers: { Authorization: `Bearer ${localStorage.getItem('auth_token')}` },
-    }).then((r) => r.json()) as Promise<{ records: Array<{ id: string; saleSource: string; saleSessionName: string | null; saleDate: string; hipNumber: string | null; hammerPriceCents: number; buyerName: string | null; consignorName: string | null }> }>,
+    queryFn: () => client.get<{ records: Array<{ id: string; saleSource: string; saleSessionName: string | null; saleDate: string; hipNumber: string | null; hammerPriceCents: number; buyerName: string | null; consignorName: string | null }> }>(`/api/horses/${id}/sale-history`).then((r) => r.data),
     enabled: !!id,
   })
 
