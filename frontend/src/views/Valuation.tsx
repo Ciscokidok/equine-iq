@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
-import { getStallionValuations, getSaleComparables } from '@/api/analytics'
+import { getStallionValuations, getSaleComparables, getPinhooking, getConsignors } from '@/api/analytics'
 
 function fmt(cents: number): string {
   return (cents / 100).toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })
@@ -311,8 +311,150 @@ function ComparablesTab() {
   )
 }
 
+function PinhookingTab() {
+  const { data, isLoading, isError } = useQuery({ queryKey: ['valuation-pinhooking'], queryFn: getPinhooking })
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
+
+  const horses = [...(data?.horses ?? [])].sort((a, b) =>
+    sortDir === 'desc'
+      ? (b.roiPct ?? -Infinity) - (a.roiPct ?? -Infinity)
+      : (a.roiPct ?? -Infinity) - (b.roiPct ?? -Infinity)
+  )
+
+  if (isLoading) return <p className="text-sm text-stone-400 py-8">Loading…</p>
+  if (isError) return <p className="text-sm text-red-500 py-8">Failed to load pinhooking data.</p>
+
+  return (
+    <div className="space-y-4">
+      <p className="text-sm text-stone-500">
+        Horses sold at auction 2 or more times. Shows price delta between first and most recent sale.
+        Positive ROI = appreciated in value; negative = depreciated.
+      </p>
+      {horses.length === 0 ? (
+        <p className="text-sm text-stone-400 italic py-4">No horses found with multiple sale records.</p>
+      ) : (
+        <div className="overflow-auto">
+          <table className="w-full text-left text-sm">
+            <thead>
+              <tr className="text-xs text-stone-400 uppercase tracking-wide">
+                <th className="pb-2 pr-4">Horse</th>
+                <th className="pb-2 pr-4">Sire</th>
+                <th className="pb-2 pr-4">Sales</th>
+                <th className="pb-2 pr-4">First Sale</th>
+                <th className="pb-2 pr-4">Last Sale</th>
+                <th className="pb-2 pr-4">Delta</th>
+                <th className="pb-2 cursor-pointer select-none hover:text-stone-700" onClick={() => setSortDir(d => d === 'asc' ? 'desc' : 'asc')}>
+                  ROI {sortDir === 'asc' ? '↑' : '↓'}
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {horses.map((h) => {
+                const positive = (h.roiPct ?? 0) >= 0
+                return (
+                  <tr key={h.horseId} className="border-t border-stone-100 hover:bg-stone-50">
+                    <td className="py-2.5 pr-4">
+                      <Link to={`/stallions/${h.horseId}`} className="font-medium text-stone-900 hover:text-brand-700">{h.horseName}</Link>
+                    </td>
+                    <td className="py-2.5 pr-4 text-stone-500">{h.sire ?? '—'}</td>
+                    <td className="py-2.5 pr-4 text-stone-500">{h.saleCount}</td>
+                    <td className="py-2.5 pr-4 text-stone-600">{fmt(h.firstPrice)}</td>
+                    <td className="py-2.5 pr-4 font-medium text-stone-800">{fmt(h.lastPrice)}</td>
+                    <td className={`py-2.5 pr-4 font-medium ${positive ? 'text-emerald-600' : 'text-red-500'}`}>
+                      {positive ? '+' : ''}{fmt(h.priceDelta)}
+                    </td>
+                    <td className="py-2.5">
+                      {h.roiPct !== null ? (
+                        <span className={`text-sm font-semibold ${positive ? 'text-emerald-600' : 'text-red-500'}`}>
+                          {positive ? '+' : ''}{h.roiPct.toFixed(1)}%
+                        </span>
+                      ) : <span className="text-stone-400">—</span>}
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function ConsignorsTab() {
+  const { data, isLoading, isError } = useQuery({ queryKey: ['valuation-consignors'], queryFn: getConsignors })
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
+
+  const consignors = [...(data?.consignors ?? [])].sort((a, b) =>
+    sortDir === 'desc'
+      ? (b.avgVsSirePct ?? 0) - (a.avgVsSirePct ?? 0)
+      : (a.avgVsSirePct ?? 0) - (b.avgVsSirePct ?? 0)
+  )
+
+  if (isLoading) return <p className="text-sm text-stone-400 py-8">Loading…</p>
+  if (isError) return <p className="text-sm text-red-500 py-8">Failed to load consignor data.</p>
+
+  return (
+    <div className="space-y-4">
+      <p className="text-sm text-stone-500">
+        Consignors ranked by how their horses sell relative to the sire-group average.
+        Above 100% means their horses consistently outperform bloodline benchmarks.
+      </p>
+      {consignors.length === 0 ? (
+        <p className="text-sm text-stone-400 italic py-4">No consignor data found.</p>
+      ) : (
+        <div className="overflow-auto">
+          <table className="w-full text-left text-sm">
+            <thead>
+              <tr className="text-xs text-stone-400 uppercase tracking-wide">
+                <th className="pb-2 pr-4">Consignor</th>
+                <th className="pb-2 pr-4">Sales</th>
+                <th className="pb-2 pr-4">Avg Price</th>
+                <th className="pb-2 pr-4">Median</th>
+                <th className="pb-2 pr-4">Total Volume</th>
+                <th className="pb-2 pr-4">Beat Sire Avg</th>
+                <th className="pb-2 cursor-pointer select-none hover:text-stone-700" onClick={() => setSortDir(d => d === 'asc' ? 'desc' : 'asc')}>
+                  vs Sire Benchmark {sortDir === 'asc' ? '↑' : '↓'}
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {consignors.map((c) => {
+                const pct = c.avgVsSirePct
+                const color = pct === null ? 'text-stone-400' : pct >= 110 ? 'text-emerald-600' : pct >= 90 ? 'text-stone-600' : 'text-red-500'
+                return (
+                  <tr key={c.consignor} className="border-t border-stone-100 hover:bg-stone-50">
+                    <td className="py-2.5 pr-4 font-medium text-stone-900">{c.consignor}</td>
+                    <td className="py-2.5 pr-4 text-stone-500">{c.saleCount}</td>
+                    <td className="py-2.5 pr-4 text-stone-600">{fmt(c.avgPrice)}</td>
+                    <td className="py-2.5 pr-4 text-stone-500">{fmt(c.medianPrice)}</td>
+                    <td className="py-2.5 pr-4 text-stone-500">{fmt(c.totalVolume)}</td>
+                    <td className="py-2.5 pr-4 text-stone-500">{c.beatsSireAvg} / {c.saleCount}</td>
+                    <td className={`py-2.5 font-semibold ${color}`}>
+                      {pct !== null ? `${pct}%` : '—'}
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  )
+}
+
+type TabKey = 'stallions' | 'comparables' | 'pinhooking' | 'consignors'
+
 export default function Valuation() {
-  const [tab, setTab] = useState<'stallions' | 'comparables'>('stallions')
+  const [tab, setTab] = useState<TabKey>('stallions')
+
+  const tabs: Array<{ key: TabKey; label: string }> = [
+    { key: 'stallions', label: 'Stallion ROI' },
+    { key: 'comparables', label: 'Sale Comparables' },
+    { key: 'pinhooking', label: 'Pinhooking ROI' },
+    { key: 'consignors', label: 'Consignors' },
+  ]
 
   return (
     <div className="space-y-6">
@@ -324,23 +466,26 @@ export default function Valuation() {
       </div>
 
       <div className="flex gap-1 border-b border-stone-200">
-        {(['stallions', 'comparables'] as const).map((t) => (
+        {tabs.map((t) => (
           <button
-            key={t}
-            onClick={() => setTab(t)}
+            key={t.key}
+            onClick={() => setTab(t.key)}
             className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
-              tab === t
+              tab === t.key
                 ? 'border-stone-800 text-stone-900'
                 : 'border-transparent text-stone-500 hover:text-stone-700'
             }`}
           >
-            {t === 'stallions' ? 'Stallion ROI' : 'Sale Comparables'}
+            {t.label}
           </button>
         ))}
       </div>
 
       <div>
-        {tab === 'stallions' ? <StallionTab /> : <ComparablesTab />}
+        {tab === 'stallions' && <StallionTab />}
+        {tab === 'comparables' && <ComparablesTab />}
+        {tab === 'pinhooking' && <PinhookingTab />}
+        {tab === 'consignors' && <ConsignorsTab />}
       </div>
     </div>
   )

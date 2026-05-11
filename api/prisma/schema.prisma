@@ -160,6 +160,8 @@ model Horse {
   heatCycles           HeatCycle[]
   auctionListings      AuctionListing[]
   saleRecords          SaleRecord[]
+  racingEarnings       RacingEarnings?
+  productionCosts      ProductionCost[]
   studBookingsMare     StudBooking[]   @relation("StudBookingMare")
   studBookingsStallion StudBooking[]   @relation("StudBookingStallion")
 
@@ -448,6 +450,37 @@ model SaleRecord {
   @@unique([horseId, hipNumber, saleDate])
   @@index([horseId])
   @@index([importBatchId])
+}
+
+model RacingEarnings {
+  id                 String   @id @default(cuid())
+  horseId            String   @unique
+  horse              Horse    @relation(fields: [horseId], references: [id], onDelete: Cascade)
+  totalEarningsCents BigInt   @default(0)
+  starts             Int?
+  wins               Int?
+  places             Int?
+  shows              Int?
+  bestRaceClass      String?
+  notes              String?
+  sourceUrl          String?
+  updatedByUserId    String?
+  updatedAt          DateTime @updatedAt
+}
+
+model ProductionCost {
+  id          String   @id @default(cuid())
+  horseId     String
+  horse       Horse    @relation(fields: [horseId], references: [id], onDelete: Cascade)
+  userId      String
+  category    String
+  amountCents Int
+  year        Int
+  notes       String?
+  createdAt   DateTime @default(now())
+
+  @@index([horseId])
+  @@index([userId])
 }
 
 model ImportBatch {
