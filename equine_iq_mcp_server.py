@@ -100,6 +100,28 @@ def _post(path: str, body: Any) -> Any:
     return r.json()
 
 
+def _patch(path: str, body: Any) -> Any:
+    global _token
+    url = f"{API_BASE}{path}"
+    r = httpx.patch(url, json=body, headers=_headers(), timeout=TIMEOUT)
+    if r.status_code == 401:
+        _token = ""
+        r = httpx.patch(url, json=body, headers=_headers(), timeout=TIMEOUT)
+    r.raise_for_status()
+    return r.json()
+
+
+def _delete(path: str) -> Any:
+    global _token
+    url = f"{API_BASE}{path}"
+    r = httpx.delete(url, headers=_headers(), timeout=TIMEOUT)
+    if r.status_code == 401:
+        _token = ""
+        r = httpx.delete(url, headers=_headers(), timeout=TIMEOUT)
+    r.raise_for_status()
+    return r.json()
+
+
 # ---------------------------------------------------------------------------
 # Tools
 # ---------------------------------------------------------------------------
@@ -259,6 +281,124 @@ def list_pairings() -> str:
 def get_pedigree(horse_id: str) -> str:
     """Get pedigree tree and inbreeding flags for any horse."""
     return json.dumps(_get(f"/api/horses/{horse_id}/pedigree"), indent=2)
+
+
+# ---------------------------------------------------------------------------
+# Stud Book / Breeding tools
+# ---------------------------------------------------------------------------
+
+@mcp.tool()
+def get_stud_book() -> str:
+    """Get the operational stud book — all mares with their current breeding status.
+
+    Returns a summary with counts (open, bred, confirmed_in_foal, foaled, other)
+    and each mare's latest breeding record including stallion, dates, and foal info.
+
+    Status lifecycle: open → bred → confirmed_in_foal → foaled (or slipped/barren)
+    """
+    return json.dumps(_get("/api/breedings/stud-book"), indent=2)
+
+
+@mcp.tool()
+def record_breeding(
+    mare_id: str,
+    stallion_id: str,
+    bred_date: str,
+    stud_fee_cents: int = 0,
+    expected_foal_date: str = "",
+    notes: str = "",
+) -> str:
+    """Record a breeding event — mare was covered by a stallion on a given date.
+
+    Args:
+      mare_id: ID of the mare
+      stallion_id: ID of the stallion
+      bred_date: Date of breeding in YYYY-MM-DD format
+      stud_fee_cents: Stud fee paid in cents (e.g. 250000 = $2,500)
+      expected_foal_date: Expected foaling date in YYYY-MM-DD format
+      notes: Any notes about the breeding
+    """
+    body: dict = {"mareId": mare_id, "stallionId": stallion_id, "bredDate": bred_date}
+    if stud_fee_cents:
+        body["studFeeCents"] = stud_fee_cents
+    if expected_foal_date:
+        body["expectedFoalDate"] = expected_foal_date
+    if notes:
+        body["notes"] = notes
+    return json.dumps(_post("/api/breedings", body), indent=2)
+
+
+@mcp.tool()
+def update_breeding_status(
+    breeding_id: str,
+    status: str,
+    confirmed_at: str = "",
+    expected_foal_date: str = "",
+    notes: str = "",
+) -> str:
+    """Update the status of an existing breeding record.
+
+    Args:
+      breeding_id: ID of the breeding record
+      status: New status — one of: bred, confirmed_in_foal, slipped, barren
+              (use record_foal_born to set foaled status)
+      confirmed_at: Date pregnancy was confirmed (YYYY-MM-DD), for confirmed_in_foal
+      expected_foal_date: Updated expected foaling date (YYYY-MM-DD)
+      notes: Updated notes
+    """
+    valid = {"bred", "confirmed_in_foal", "slipped", "barren"}
+    if status not in valid:
+        return json.dumps({"error": f"status must be one of: {', '.join(sorted(valid))}"})
+    body: dict = {"status": status}
+    if confirmed_at:
+        body["confirmedAt"] = confirmed_at
+    if expected_foal_date:
+        body["expectedFoalDate"] = expected_foal_date
+    if notes:
+        body["notes"] = notes
+    return json.dumps(_patch(f"/api/breedings/{breeding_id}", body), indent=2)
+
+
+@mcp.tool()
+def record_foal_born(
+    breeding_id: str,
+    foaled_at: str,
+    name: str = "",
+    sex: str = "",
+    color: str = "",
+    notes: str = "",
+) -> str:
+    """Record that a foal was born from a breeding.
+
+    Sets the breeding status to 'foaled' and creates a foal record.
+
+    Args:
+      breeding_id: ID of the breeding record
+      foaled_at: Date the foal was born (YYYY-MM-DD)
+      name: Foal's name (can be set later)
+      sex: colt, filly, or gelding
+      color: Foal's color
+      notes: Any notes about the birth
+    """
+    body: dict = {"foaledAt": foaled_at}
+    if name:
+        body["name"] = name
+    if sex:
+        body["sex"] = sex
+    if color:
+        body["color"] = color
+    if notes:
+        body["notes"] = notes
+    return json.dumps(_post(f"/api/breedings/{breeding_id}/foal", body), indent=2)
+
+
+@mcp.tool()
+def list_breedings() -> str:
+    """List all breeding records for the current user's mares.
+
+    Returns full detail on each breeding including mare, stallion, status, dates, and foal.
+    """
+    return json.dumps(_get("/api/breedings"), indent=2)
 
 
 # ---------------------------------------------------------------------------
