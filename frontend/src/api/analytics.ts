@@ -1,7 +1,7 @@
 import client from './client'
 
 export interface StallionValuation {
-  id: string
+  id: string | null
   name: string
   studFee: number | null
   progenyCount: number
@@ -10,6 +10,7 @@ export interface StallionValuation {
   minProgenyPrice: number
   maxProgenyPrice: number
   studFeeToAvgRatio: number | null
+  inCatalog: boolean
 }
 
 export interface SaleComparable {

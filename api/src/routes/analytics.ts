@@ -5,12 +5,12 @@ import { requireAuth, getUserId } from '../middleware/auth'
 const router = Router()
 
 // GET /api/analytics/valuation/stallions
-// Returns stallions with stud fee vs progeny sale price comparison
+// Returns all sires with progeny sale data, left-joined to catalog for stud fee
 router.get('/valuation/stallions', requireAuth, async (_req: Request, res: Response) => {
   type StallionRow = {
-    id: string
-    name: string
-    studFee: number | null
+    catalog_id: string | null
+    sire_name: string
+    stud_fee: number | null
     progeny_count: bigint
     avg_price: bigint
     median_price: bigint
@@ -18,46 +18,52 @@ router.get('/valuation/stallions', requireAuth, async (_req: Request, res: Respo
     max_price: bigint
   }
 
-  const rows = await prisma.$queryRaw<StallionRow[]>`
-    SELECT
-      s.id,
-      s.name,
-      s."studFee",
-      COUNT(sr.id)::int                                                          AS progeny_count,
-      ROUND(AVG(sr."hammerPriceCents"))::bigint                                  AS avg_price,
-      ROUND(PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY sr."hammerPriceCents"))::bigint AS median_price,
-      MIN(sr."hammerPriceCents")::bigint                                         AS min_price,
-      MAX(sr."hammerPriceCents")::bigint                                         AS max_price
-    FROM "Horse" s
-    JOIN "Horse" o ON o.pedigree->>'sire' = s.name
-    JOIN "SaleRecord" sr ON sr."horseId" = o.id
-    WHERE s.sex = 'stallion'
-      AND sr."hammerPriceCents" > 0
-    GROUP BY s.id, s.name, s."studFee"
-    HAVING COUNT(sr.id) >= 2
-    ORDER BY s.name
-  `
+  try {
+    const rows = await prisma.$queryRaw<StallionRow[]>`
+      SELECT
+        s.id                                                                          AS catalog_id,
+        o.pedigree->>'sire'                                                           AS sire_name,
+        s."studFee"                                                                   AS stud_fee,
+        COUNT(sr.id)::int                                                             AS progeny_count,
+        ROUND(AVG(sr."hammerPriceCents"))::bigint                                     AS avg_price,
+        ROUND(PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY sr."hammerPriceCents"))::bigint AS median_price,
+        MIN(sr."hammerPriceCents")::bigint                                            AS min_price,
+        MAX(sr."hammerPriceCents")::bigint                                            AS max_price
+      FROM "Horse" o
+      JOIN "SaleRecord" sr ON sr."horseId" = o.id
+      LEFT JOIN "Horse" s ON s.name = o.pedigree->>'sire' AND s.sex = 'stallion'
+      WHERE sr."hammerPriceCents" > 0
+        AND o.pedigree->>'sire' IS NOT NULL
+        AND o.pedigree->>'sire' != ''
+        AND o.pedigree->>'sire' != 'null'
+      GROUP BY s.id, o.pedigree->>'sire', s."studFee"
+      HAVING COUNT(sr.id) >= 2
+      ORDER BY COUNT(sr.id) DESC
+    `
 
-  const stallions = rows.map((r) => {
-    const avgPrice = Number(r.avg_price)
-    const studFee = r.studFee ?? null
-    const ratio = studFee && avgPrice > 0 ? studFee / avgPrice : null
-    return {
-      id: r.id,
-      name: r.name,
-      studFee,
-      progenyCount: Number(r.progeny_count),
-      avgProgenyPrice: avgPrice,
-      medianProgenyPrice: Number(r.median_price),
-      minProgenyPrice: Number(r.min_price),
-      maxProgenyPrice: Number(r.max_price),
-      // ratio > 1 means stud fee > avg progeny sale = overvalued
-      // ratio < 1 means stud fee < avg progeny sale = undervalued
-      studFeeToAvgRatio: ratio,
-    }
-  })
+    const stallions = rows.map((r) => {
+      const avgPrice = Number(r.avg_price)
+      const studFee = r.stud_fee ?? null
+      const ratio = studFee && avgPrice > 0 ? studFee / avgPrice : null
+      return {
+        id: r.catalog_id ?? null,
+        name: r.sire_name,
+        studFee,
+        progenyCount: Number(r.progeny_count),
+        avgProgenyPrice: avgPrice,
+        medianProgenyPrice: Number(r.median_price),
+        minProgenyPrice: Number(r.min_price),
+        maxProgenyPrice: Number(r.max_price),
+        studFeeToAvgRatio: ratio,
+        inCatalog: r.catalog_id !== null,
+      }
+    })
 
-  res.json({ stallions })
+    res.json({ stallions })
+  } catch (e: unknown) {
+    console.error('[stallions-valuation]', e)
+    res.status(500).json({ error: e instanceof Error ? e.message : 'Query failed' })
+  }
 })
 
 // GET /api/analytics/valuation/comparables

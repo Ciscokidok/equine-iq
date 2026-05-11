@@ -153,11 +153,15 @@ function StallionTab() {
             </thead>
             <tbody>
               {sorted.map((s) => (
-                <tr key={s.id} className="border-t border-stone-100 hover:bg-stone-50">
+                <tr key={s.name} className="border-t border-stone-100 hover:bg-stone-50">
                   <td className="py-2.5 pr-4">
-                    <Link to={`/stallions/${s.id}`} className="font-medium text-stone-900 hover:text-brand-700">
-                      {s.name}
-                    </Link>
+                    {s.id ? (
+                      <Link to={`/stallions/${s.id}`} className="font-medium text-stone-900 hover:text-brand-700">
+                        {s.name}
+                      </Link>
+                    ) : (
+                      <span className="font-medium text-stone-900">{s.name}</span>
+                    )}
                   </td>
                   <td className="py-2.5 pr-4 text-stone-600">
                     {s.studFee ? fmt(s.studFee * 100) : <span className="text-stone-400">—</span>}
