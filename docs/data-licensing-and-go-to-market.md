@@ -1,4 +1,4 @@
-# EquineIQ — Data Licensing & Go-to-Market Guide
+# EquineIQ — Data Licensing, Auction Revenue & Go-to-Market Guide
 
 ## Current Data Situation
 
@@ -309,3 +309,161 @@ Hand them a card or have them put their email in on the spot.
 | "I don't trust AI for breeding decisions" | "The AI is a research assistant, not the decision-maker. It surfaces things to consider — you still make the call." |
 | "I'm not very technical" | "If you can use your phone you can use this. The stud book is basically a smarter version of what you're already doing in a notebook." |
 | "How much does it cost?" | "Free for 90 days. After that it's $49/month — less than one vet call." |
+
+---
+
+## Online Auction Revenue
+
+### What's Already Built
+
+EquineIQ has a full online auction system in production. This is not a future roadmap item — the infrastructure exists today:
+
+- **Real-time bidding engine** via Socket.io — bids broadcast live to all connected buyers in an auction room
+- **Auto/proxy bidding** — buyers set a maximum and the system bids on their behalf up to that ceiling
+- **Bid increment management** — configurable minimum raise per auction
+- **Bidder approval queue** (`/admin/bidders`) — admin vets and approves buyers before they can place bids
+- **Listing vetting queue** (`/admin/vetting`) — admin approves consignments before they go live
+- **Reserve price support** — lots can have a reserve with auto-pass or auto-decline behavior
+- **Seller dashboard** — consignors manage their listings
+- **Buyer dashboard** — bidders track their activity and won lots
+- **Bidpath adapter** — integration point for Bidpath's professional auction platform (see below)
+
+**What still needs to be built to go live:**
+- Buyer's premium calculation applied at hammer and collected via Stripe
+- Seller payment disbursement (Stripe Connect or manual ACH)
+- Public sale catalog pages visible without login — so non-members can browse and register to bid
+- Sale event landing page with dates, catalog preview, and registration CTA
+- Auctioneer licensing compliance (see Legal section below)
+
+---
+
+### Revenue Model
+
+The industry standard is a **5% buyer's premium** — the buyer pays 5% on top of the hammer price. The seller typically pays a **2–3% seller's commission** or a flat **listing fee per lot**. Both flow to the platform.
+
+**Projected auction revenue by sale type (annual):**
+
+| Sale | Frequency | Lots | Avg Hammer | GMV | 5% Premium |
+|---|---|---|---|---|---|
+| Sport horse / warmblood | 4x/year | 50 | $8,000 | $1.6M | $80k |
+| Quarter horse / reining | 4x/year | 75 | $5,000 | $1.5M | $75k |
+| TB yearling online | 2x/year | 100 | $15,000 | $3M | $150k |
+| Breeding stock | 4x/year | 60 | $10,000 | $2.4M | $120k |
+| **Total** | | | | **$8.5M GMV** | **$425k/year** |
+
+Add 2% seller commission on the same volume: another **$170k/year**.
+
+At scale this is the largest single revenue line in the business — larger than subscriptions. The strategic advantage is that EquineIQ's subscription breeders are pre-qualified buyers. A consignor listing on EquineIQ gets access to buyers who already use the Mating Advisor and Valuation tools — they are not casual browsers, they are serious breeders actively evaluating horses. That's a premium audience and justifies premium consignment fees.
+
+---
+
+### Legal: Auctioneer Licensing
+
+Several states require a licensed auctioneer to conduct a public auction. The major horse states:
+
+| State | Requirement | Notes |
+|---|---|---|
+| **Kentucky** | Auctioneer license required | Apply through KY Board of Auctioneers; $200 fee, exam required |
+| **Texas** | Auctioneer license required | TDLR; exam + bond required |
+| **Florida** | Auctioneer license required | DBPR; exam required |
+| **California** | License required for certain auctions | Check CA Sec of State |
+| **Oklahoma** | License required | Key state for reining/cutting |
+
+**Options to address this:**
+1. **Get licensed yourself** — exam-based, takes 2–4 months, costs $500–$2,000 depending on state
+2. **Partner with a licensed auctioneer** — they serve as the auctioneer of record; you provide the platform; split the premium (e.g., 1% to them, 4% to you)
+3. **Use Bidpath** — as an established auction technology provider, Bidpath has existing relationships with licensed auctioneers and can advise on compliance in each state
+
+Option 2 or 3 is the fastest path to going live. A licensed auctioneer partner also adds credibility with consignors.
+
+---
+
+### Bidpath Integration
+
+#### What Bidpath Is
+
+Bidpath (bidpath.com) is a B2B auction technology company that powers online auctions across livestock, equipment, and collectibles markets. They provide:
+- White-label real-time bidding infrastructure
+- Auctioneer tools (clerking software, bid calling interface)
+- Buyer registration and KYC workflows
+- Payment processing and settlement
+- Compliance support for state auctioneer licensing
+
+Several livestock and specialty auction companies use Bidpath as their backend while presenting their own brand to buyers and sellers.
+
+#### Current Status in EquineIQ
+
+The `BidpathAdapter` is already scaffolded in the codebase at `api/src/lib/adapters/BidpathAdapter.ts`. The adapter interface (`connect`, `placeBid`, `onLotStateUpdate`, `isHealthy`) is defined and wired into the server. The adapter currently throws `"Bidpath partnership not active"` on all calls — it is a stub waiting for credentials and a signed agreement.
+
+The `AuctionSource` type already includes `'bidpath'` alongside `'internal'`, `'keeneland'`, `'fasig_tipton'`, and `'obs'` — the architecture was designed from the start to support multiple auction backends.
+
+#### How to Activate the Integration
+
+**Step 1 — Contact Bidpath**
+- Website: bidpath.com
+- Email: info@bidpath.com or use the contact form under "Partners"
+- Ask for: a **white-label partnership agreement** for an online equine auction platform
+- Mention: you have existing technology infrastructure and need their real-time bidding engine and settlement services
+
+**Step 2 — What to ask for in the agreement**
+- API credentials (WebSocket endpoint, API key, seller/lot management endpoints)
+- Sandbox/test environment access before going live
+- Their fee structure — typically a per-transaction fee or monthly platform fee
+- Auctioneer licensing support or referrals to licensed auctioneers in KY/TX/FL/OK
+
+**Step 3 — Technical implementation (2–3 days of work)**
+
+The `BidpathAdapter` stub needs to be completed with three real implementations:
+
+```
+connect()         — WebSocket connection to Bidpath's real-time feed
+placeBid()        — POST to Bidpath's bid submission API
+onLotStateUpdate() — Handle incoming lot state events (current bid, time remaining, sold)
+```
+
+Bidpath's API is WebSocket-based for live events and REST for lot/sale management. Once you have credentials and their API docs, the adapter can be completed quickly because the interface is already defined — it's just filling in the HTTP/WS calls.
+
+**Step 4 — Environment variables to add**
+```
+BIDPATH_API_KEY=
+BIDPATH_WEBSOCKET_URL=
+BIDPATH_API_BASE_URL=
+BIDPATH_SELLER_ID=
+```
+
+**Step 5 — What activating Bidpath unlocks**
+- EquineIQ-hosted sales that run on Bidpath's proven real-time infrastructure
+- Their buyer registration and payment settlement (removes the need to build buyer's premium collection from scratch)
+- Access to their existing user base of auction buyers — cross-promotion opportunity
+- Auctioneer compliance handled through their licensed partners
+
+#### Alternative: Run Fully Internal
+
+The internal auction engine (Socket.io + PostgreSQL) is fully functional for smaller sales. The trade-off:
+
+| | Internal Engine | Bidpath |
+|---|---|---|
+| Setup time | Ready now | 2–3 days after agreement |
+| Cost | None beyond Render | Per-transaction fee |
+| Auctioneer licensing | Your problem | Their support |
+| Proven at scale | Small sales only | Yes |
+| Buyer's premium collection | Needs to be built | Included |
+| Existing buyer base | None | Some |
+
+**Recommendation:** Use the internal engine for the first 2–3 sales to prove the model and build consignor relationships. Activate Bidpath once you're running regular sales and the transaction fee is justified by volume.
+
+---
+
+### Five-Year Revenue Model (Combined)
+
+Adding auction revenue to the subscription model:
+
+| Year | Subscription ARR | Auction Revenue | Total ARR |
+|---|---|---|---|
+| Y1 | $21k | $15k (2 small sales) | $36k |
+| Y2 | $83k | $60k (8 sales) | $143k |
+| Y3 | $226k | $175k (20 sales) | $401k |
+| Y4 | $505k | $350k (40 sales) | $855k |
+| Y5 | $952k | $595k (60 sales, larger lots) | **$1.55M** |
+
+The auction side scales with consignor relationships and reputation — the first few sales are the hardest. Once you have 3–4 completed sales with documented results, consignors start coming to you.
