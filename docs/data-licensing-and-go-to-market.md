@@ -34,30 +34,78 @@ Frame it as a platform that drives breeder demand toward listed stallions and Ke
 ## Option 2 — The Jockey Club / Equineline (Recommended for Thoroughbreds)
 
 **Website**: equineline.com  
-**Parent organization**: The Jockey Club (jockeyclub.com)
+**Parent organization**: The Jockey Club (jockeyclub.com)  
+**Phone**: (800) 333-1778  
+**Commercial licensing contact**: data@jockeyclub.com
 
 ### What Equineline Provides
-- Complete Thoroughbred pedigree database (every registered TB)
-- Sale history across all major auctions (Keeneland, Fasig-Tipton, OBS, Tattersalls)
-- Racing performance records
-- Breeding records and produce records (what foals each mare/stallion has produced)
-- Progeny performance summaries — exactly what the Mating Advisor needs
+- Complete Thoroughbred pedigree database (every registered TB going back generations)
+- Sale history across all major auctions: Keeneland, Fasig-Tipton, OBS, Tattersalls, Goffs
+- Racing performance records — starts, wins, earnings, graded stakes placings
+- Breeding records and produce records (every foal each mare/stallion has produced)
+- Progeny performance summaries — career earnings, race records for offspring
+- Sire and broodmare sire statistics — exactly what powers a credible mating advisor
 
-### API Access
-The Jockey Club Information System (TJCIS) already has a connector stub in the EquineIQ codebase (`src/lib/dataProviders/`). The platform provider config for `tjcis` is in the database schema. The integration point exists — it just needs credentials.
+### Step-by-Step: How to Get Access
 
-To get access:
-1. Go to equineline.com and click "Data Licensing" or call (800) 333-1778
-2. Request commercial API access for a breeding/sales analytics application
-3. Expect a per-query fee or monthly subscription; cost depends on query volume
+**Step 1 — Start with an individual account to evaluate the data**
+Go to equineline.com and sign up for a personal subscription ($25–$50/month). This gives you access to the lookup interface and lets you verify the data quality and depth before entering licensing negotiations. Use it to look up horses in your existing catalog and confirm the fields match what EquineIQ needs.
+
+**Step 2 — Contact The Jockey Club for commercial licensing**
+Email data@jockeyclub.com or call (800) 333-1778. Ask specifically for:
+- **TJCIS (The Jockey Club Information System) API access** — this is the programmatic interface used by industry applications
+- A **commercial data licensing agreement** for a SaaS breeding analytics platform
+- Their **data dictionary** — the full list of fields and endpoints available
+
+In your email, describe:
+- What EquineIQ does (breeding management + auction analytics platform)
+- Approximate query volume you expect (start low — 1,000 lookups/month)
+- That you have an existing TJCIS connector in your codebase ready to receive credentials
+
+**Step 3 — What the TJCIS API looks like**
+
+TJCIS is a SOAP/XML web service (older style, but stable and well-documented once you have access). The primary queries you need:
+
+| Query | What it returns | Use in EquineIQ |
+|---|---|---|
+| `GetHorseByName` | Pedigree, basic race record | Mating Advisor — sire/dam lookup |
+| `GetProgenyList` | All offspring of a sire or dam | Stallion ROI — progeny stats |
+| `GetSaleHistory` | Auction results for a horse | Sale Comparables — replaces Keeneland scraping |
+| `GetRaceRecord` | Career starts, wins, earnings | Racing Earnings — replaces manual entry |
+| `GetSireStats` | Aggregate progeny performance | Mating Advisor scoring |
+
+**Step 4 — Wire it into EquineIQ**
+
+The connector stub already exists at `api/src/lib/dataProviders/`. The database schema has a `PlatformProviderConfig` table with a `tjcis` provider row. The admin can store encrypted TJCIS credentials there. The Settings page already has a "Data Sources" section.
+
+Once you have TJCIS credentials, the implementation steps are:
+1. Add `TJCIS_ENDPOINT`, `TJCIS_USERNAME`, `TJCIS_PASSWORD` to Render environment variables
+2. Complete the TJCIS provider in `api/src/lib/dataProviders/` — replace stub responses with real SOAP calls using the `soap` npm package
+3. Wire the provider into the Mating Advisor scoring to pull live progeny stats
+4. Replace the Keeneland scraping in the import route with TJCIS sale history queries
+5. Add a background sync job that enriches newly imported horses with TJCIS pedigree data overnight
+
+**Step 5 — Negotiate pricing**
+
+TJCIS pricing is not published. It is negotiated based on:
+- Query volume per month
+- Which data products you need (pedigree only vs. full sale + performance)
+- Whether you're reselling the data or just using it internally to power features
+
+**Ballpark ranges** (based on industry knowledge — confirm with The Jockey Club):
+- Pedigree lookups only: $0.05–$0.15 per query
+- Full data package (pedigree + performance + sales): $500–$2,000/month flat for small platforms
+- Revenue-share model: 5–10% of platform revenue in exchange for lower per-query cost — worth asking about for an early-stage company
+
+At $99/month per breeder subscriber, even a $1,000/month TJCIS fee is covered by 10–11 professional subscribers. It becomes a fixed cost that improves the product for everyone.
 
 ### Cost Range
-- Individual subscriptions: ~$25–$50/month (not suitable for a platform)
-- Commercial API/data licensing: negotiated, typically $500–$5,000/year for a small platform
-- Revenue-share arrangements are possible for early-stage companies
+- Individual subscription (evaluation only): $25–$50/month
+- TJCIS commercial API: $500–$2,000/month depending on volume and data scope
+- Revenue-share arrangement: possible for early-stage companies — ask for it
 
 ### Why This Is the Right Long-Term Path
-Equineline is the authoritative source for Thoroughbred data. Every serious buyer and seller in the TB market trusts it. A platform backed by Equineline data has instant credibility with the people you're trying to sell to.
+Equineline is the authoritative source for Thoroughbred data. Every serious buyer and seller in the TB market trusts it. A platform backed by Equineline data has instant credibility with the people you're trying to sell to. It also eliminates the legal and technical fragility of scraping Keeneland's internal endpoints.
 
 ---
 
