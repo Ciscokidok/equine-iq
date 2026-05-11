@@ -14,6 +14,7 @@ const ADMIN_NAV = [
   { to: '/admin/foal-pipeline', label: 'Foal Pipeline' },
   { to: '/admin/vetting', label: 'Vetting Queue' },
   { to: '/admin/bidders', label: 'Bidder Approval' },
+  { to: '/admin/keeneland-sync', label: 'Keeneland Sync' },
 ]
 
 const NAV = [

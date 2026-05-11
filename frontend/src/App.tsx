@@ -24,6 +24,7 @@ import BuyerDashboard from '@/views/BuyerDashboard'
 import VettingQueue from '@/views/admin/VettingQueue'
 import BidderApproval from '@/views/admin/BidderApproval'
 import FoalPipeline from '@/views/admin/FoalPipeline'
+import KeenelandSync from '@/views/admin/KeenelandSync'
 import Import from '@/views/Import'
 import ImportHistory from '@/views/ImportHistory'
 import StudBookings from '@/views/StudBookings'
@@ -105,6 +106,7 @@ export default function App() {
                 <Route path="/admin/vetting" element={<VettingQueue />} />
                 <Route path="/admin/bidders" element={<BidderApproval />} />
                 <Route path="/admin/foal-pipeline" element={<FoalPipeline />} />
+                <Route path="/admin/keeneland-sync" element={<KeenelandSync />} />
                 <Route path="/import" element={<Import />} />
                 <Route path="/import/history" element={<ImportHistory />} />
                 <Route path="/import/history/:id" element={<ImportHistory />} />
