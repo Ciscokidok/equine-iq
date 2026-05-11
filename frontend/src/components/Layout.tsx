@@ -22,6 +22,7 @@ const NAV = [
   { to: '/advisor', label: 'Mating Advisor' },
   { to: '/pairings', label: 'Saved Pairings' },
   { to: '/stallions', label: 'Stallion Catalog' },
+  { to: '/valuation', label: 'Valuation' },
   { to: '/foals', label: 'Foal Tracker' },
   { to: '/auctions', label: 'Auctions' },
   { to: '/my-bookings', label: 'Bookings' },
