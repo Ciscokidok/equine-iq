@@ -149,6 +149,7 @@ model Horse {
   registrationNumber          String?
   epdNotes                    String?
   externalProfileUrl          String?
+  lastReviewedAt              DateTime?
   createdByUser               String?    // null = seed data
   createdAt                   DateTime   @default(now())
   updatedAt                   DateTime   @updatedAt

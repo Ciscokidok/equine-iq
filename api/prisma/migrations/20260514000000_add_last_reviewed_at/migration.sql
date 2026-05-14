@@ -1,0 +1,1 @@
+ALTER TABLE "Horse" ADD COLUMN "lastReviewedAt" TIMESTAMP(3);
