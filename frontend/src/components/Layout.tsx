@@ -11,6 +11,7 @@ function getTokenRole(): string | null {
 }
 
 const ADMIN_NAV = [
+  { to: '/admin/stallions', label: 'Stallion Manager' },
   { to: '/admin/foal-pipeline', label: 'Foal Pipeline' },
   { to: '/admin/vetting', label: 'Vetting Queue' },
   { to: '/admin/bidders', label: 'Bidder Approval' },

@@ -26,6 +26,7 @@ import studBookingsRouter from './routes/studBookings'
 import foalPipelineRouter from './routes/admin/foalPipeline'
 import keenelandSyncRouter from './routes/admin/keenelandSync'
 import usersAdminRouter from './routes/admin/users'
+import stallionsAdminRouter from './routes/admin/stallions'
 import analyticsRouter from './routes/analytics'
 import breedingsRouter from './routes/breedings'
 
@@ -68,6 +69,7 @@ app.use('/api/admin/platform-providers', platformProvidersRouter)
 app.use('/api/admin/foal-pipeline', foalPipelineRouter)
 app.use('/api/admin/keeneland', keenelandSyncRouter)
 app.use('/api/admin/users', usersAdminRouter)
+app.use('/api/admin/stallions', stallionsAdminRouter)
 app.use('/api/analytics', analyticsRouter)
 app.use('/api/breedings', breedingsRouter)
 
