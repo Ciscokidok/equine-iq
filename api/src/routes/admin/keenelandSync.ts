@@ -128,10 +128,13 @@ router.post('/sync', requireAdminToken, async (req: Request, res: Response) => {
       }
 
       // Keeneland uses '---' for RNA and '0' for Out — blank them so validateRows skips price check
+      // Inject begin_date as SaleDate so the Keeneland preset maps it correctly; without this
+      // all records default to the import-run date, breaking dedup and skewing avgProgenyPrice.
       const normalized = parsed.rows.map((row) => {
         const price = row['Price']
-        if (price === '---' || price === '0') return { ...row, Price: '' }
-        return row
+        const withDate = { ...row, SaleDate: sale.begin_date }
+        if (price === '---' || price === '0') return { ...withDate, Price: '' }
+        return withDate
       })
 
       const mapped = applyMapping(normalized, preset.columns)

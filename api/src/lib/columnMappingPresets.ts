@@ -33,6 +33,7 @@ export const PRESETS: Record<string, ColumnMappingPreset> = {
       sire: 'Sire',
       dam: 'Dam',
       dateOfBirth: 'DOB',
+      saleDate: 'SaleDate',
       saleSessionName: 'Session',
       hammerPrice: 'Price',
       buyerName: 'Purchaser',
