@@ -442,8 +442,9 @@ router.post('/keeneland/sync', requireAuth, requireAdmin, async (req: Request, r
 
         const normalized = parsed.rows.map((row) => {
           const price = row['Price']
-          if (price === '---' || price === '0') return { ...row, Price: '' }
-          return row
+          const withDate = { ...row, SaleDate: sale.begin_date }
+          if (price === '---' || price === '0') return { ...withDate, Price: '' }
+          return withDate
         })
 
         const mapped = applyMapping(normalized, preset.columns)
